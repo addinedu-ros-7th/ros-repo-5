@@ -1,0 +1,73 @@
+[0.022s] Invoking command in '/home/naon/deli_ws/deli_bot/build/pinky_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/naon/deli_ws/deli_bot/src/pinky_description -DCMAKE_INSTALL_PREFIX=/home/naon/deli_ws/deli_bot/install/pinky_description
+[0.412s] -- The C compiler identification is GNU 13.3.0
+[0.412s] -- The CXX compiler identification is GNU 13.3.0
+[0.412s] -- Detecting C compiler ABI info
+[0.412s] -- Detecting C compiler ABI info - done
+[0.412s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.412s] -- Detecting C compile features
+[0.413s] -- Detecting C compile features - done
+[0.413s] -- Detecting CXX compiler ABI info
+[0.413s] -- Detecting CXX compiler ABI info - done
+[0.413s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.413s] -- Detecting CXX compile features
+[0.413s] -- Detecting CXX compile features - done
+[0.413s] -- Found ament_cmake: 2.5.3 (/opt/ros/jazzy/share/ament_cmake/cmake)
+[0.511s] -- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter 
+[0.625s] -- Found ament_lint_auto: 0.17.1 (/opt/ros/jazzy/share/ament_lint_auto/cmake)
+[0.723s] -- Added test 'lint_cmake' to check CMake code style
+[0.726s] -- Added test 'xmllint' to check XML markup files
+[0.727s] -- Configuring done (0.7s)
+[0.729s] -- Generating done (0.0s)
+[0.731s] -- Build files have been written to: /home/naon/deli_ws/deli_bot/build/pinky_description
+[0.736s] Invoked command in '/home/naon/deli_ws/deli_bot/build/pinky_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake /home/naon/deli_ws/deli_bot/src/pinky_description -DCMAKE_INSTALL_PREFIX=/home/naon/deli_ws/deli_bot/install/pinky_description
+[0.737s] Invoking command in '/home/naon/deli_ws/deli_bot/build/pinky_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/naon/deli_ws/deli_bot/build/pinky_description -- -j12 -l12
+[0.770s] Invoked command in '/home/naon/deli_ws/deli_bot/build/pinky_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --build /home/naon/deli_ws/deli_bot/build/pinky_description -- -j12 -l12
+[0.778s] Invoking command in '/home/naon/deli_ws/deli_bot/build/pinky_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --install /home/naon/deli_ws/deli_bot/build/pinky_description
+[0.786s] -- Install configuration: ""
+[0.786s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/rviz
+[0.786s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/rviz/urdf_config.rviz
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf/camera.xacro
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf/robot_core.xacro
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf/gazebo_control.xacro
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf/robot.urdf.xacro
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf/robot_gazebo.xacro
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf/ros2_control.xacro
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf/lidar.xacro
+[0.787s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/urdf/inertial_macros.xacro
+[0.788s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/launch
+[0.788s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/launch/upload.launch.xml
+[0.788s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/launch/display.launch.xml
+[0.788s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes
+[0.788s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/collision
+[0.788s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/collision/ul_sensor.stl
+[0.788s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/collision/base_link_old.stl
+[0.791s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/collision/wheel.stl
+[0.791s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/collision/camera.stl
+[0.791s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/collision/lidar.stl
+[0.792s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/collision/base_link.stl
+[0.794s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/collision/caster.stl
+[0.794s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/visual
+[0.794s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/visual/wheel.dae
+[0.795s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/visual/ul_sensor.dae
+[0.795s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/visual/camera.dae
+[0.796s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/visual/caster.dae
+[0.796s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/visual/lidar.dae
+[0.798s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/visual/base_link_old.dae
+[0.800s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/meshes/visual/base_link.dae
+[0.803s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/ament_index/resource_index/package_run_dependencies/pinky_description
+[0.803s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/ament_index/resource_index/parent_prefix_path/pinky_description
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/environment/ament_prefix_path.sh
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/environment/ament_prefix_path.dsv
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/environment/path.sh
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/environment/path.dsv
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/local_setup.bash
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/local_setup.sh
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/local_setup.zsh
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/local_setup.dsv
+[0.804s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/package.dsv
+[0.805s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/ament_index/resource_index/packages/pinky_description
+[0.805s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/cmake/pinky_descriptionConfig.cmake
+[0.805s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/cmake/pinky_descriptionConfig-version.cmake
+[0.805s] -- Installing: /home/naon/deli_ws/deli_bot/install/pinky_description/share/pinky_description/package.xml
+[0.807s] Invoked command in '/home/naon/deli_ws/deli_bot/build/pinky_description' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy DEBUGINFOD_URLS=https://debuginfod.ubuntu.com /usr/bin/cmake --install /home/naon/deli_ws/deli_bot/build/pinky_description
