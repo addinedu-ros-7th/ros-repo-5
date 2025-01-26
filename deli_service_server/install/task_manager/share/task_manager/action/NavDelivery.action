@@ -1,0 +1,14 @@
+# task_manager/action/NavDelivery.action
+
+# goal
+string[] stations
+---
+# result
+bool success
+int32 error_code
+string error_msg
+
+---
+# feedback
+geometry_msgs/PoseStamped current_pose
+float32 distance_remaining

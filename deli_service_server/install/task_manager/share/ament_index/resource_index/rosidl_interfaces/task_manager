@@ -1,0 +1,8 @@
+action/ManipulationTask.action
+action/ManipulationTask.idl
+action/NavDelivery.action
+action/NavDelivery.idl
+msg/PickUP.idl
+msg/PickUP.msg
+msg/Task.idl
+msg/Task.msg
