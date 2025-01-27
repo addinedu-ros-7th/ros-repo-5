@@ -1,6 +1,7 @@
 import sys
 import requests
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog
+from PyQt5.QtWidgets import QLabel, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt5 import uic
 
 # login.ui 에서 자동 생성되는 UI 클래스
@@ -8,6 +9,183 @@ LoginUIClass = uic.loadUiType("login.ui")[0]
 
 # mainPage.ui 에서 자동 생성되는 UI 클래스
 MainUIClass = uic.loadUiType("mainPage.ui")[0]
+
+# userInfo.ui 파일을 로드 (위에서 제시된 UI XML 내용을 .ui 파일로 저장했다고 가정)
+MyPageUIClass = uic.loadUiType("my_menu.ui")[0]
+
+
+class MyPage(QDialog, MyPageUIClass):
+    def __init__(self, user_id=None):
+        super().__init__()
+        self.setupUi(self)
+        self.user_id = user_id
+
+        # 페이지 로드 시 사용자 정보, 주문 내역 불러오기
+        self.loadUserInfo()
+        self.loadOrders()
+
+        # "수정하기" 버튼
+        self.pushButton.clicked.connect(self.updateUser)
+        # "탈퇴하기" 버튼
+        self.pushButton_2.clicked.connect(self.deleteUser)
+
+    def loadUserInfo(self):
+        """GET /api/users/{userId} 호출하여 유저 정보 가져온 뒤 UI에 표시"""
+        if not self.user_id:
+            return
+
+        url = f"http://localhost:8000/api/users/{self.user_id}"
+        try:
+            resp = requests.get(url)
+            if resp.status_code == 200:
+                data = resp.json()
+                # 예: { "name": "홍길동", "id": "user01", "address": "서울", "email": "hong@example.com" }
+                self.name.setText(data.get("name", ""))
+                self.ID.setText(data.get("id", ""))
+                self.address.setText(data.get("address", ""))
+                self.email.setText(data.get("email", ""))
+                # PW는 서버에서 직접 제공하지 않는 경우가 많으므로 여기서는 빈칸 처리
+                self.PW.setText("")
+            else:
+                QMessageBox.warning(self, "에러", "유저 정보를 불러올 수 없습니다.")
+        except Exception as e:
+            QMessageBox.critical(self, "에러", f"유저 정보 조회 중 오류가 발생했습니다.\n{str(e)}")
+
+    def loadOrders(self):
+        """
+        GET /api/orders?userId={userId} 로 주문 내역 받아온 뒤 스크롤 영역에 표시.
+        status가 'queued'인 주문에만 취소 버튼 표시.
+        """
+        if not self.user_id:
+            return
+
+        url = f"http://localhost:8000/api/orders?userId={self.user_id}"
+        try:
+            resp = requests.get(url)
+            if resp.status_code == 200:
+                data = resp.json()
+                orders = data.get("orders", [])
+
+                # 스크롤 에어리어 내부 레이아웃 새로 구성
+                layout = QVBoxLayout(self.scrollAreaWidgetContents)
+
+                for order in orders:
+                    order_id = order.get("orderId", "")
+                    status = order.get("status", "")
+                    items = order.get("items", {})
+                    price = order.get("price", 0)
+
+                    # 주문 정보를 표시할 라벨
+                    text = (
+                        f"주문번호: {order_id}\n"
+                        f"상태: {status}\n"
+                        f"아이템: {items}\n"
+                        f"가격: {price}원\n"
+                    )
+                    label = QLabel(text)
+                    label.setStyleSheet("font-size:14px; margin-bottom: 10px;")
+
+                    # QHBoxLayout으로 라벨 + (필요 시) 버튼 가로 배치
+                    hbox = QHBoxLayout()
+                    hbox.addWidget(label)
+
+                    # status가 "queued"이면 주문 취소 버튼 생성
+                    if status == "queued":
+                        cancel_btn = QPushButton("주문 취소")
+                        cancel_btn.setStyleSheet("font-size:14px; padding:5px;")
+                        # 람다를 이용하여 order_id를 인자로 넘긴다
+                        cancel_btn.clicked.connect(lambda _, oid=order_id: self.cancelOrder(oid))
+                        hbox.addWidget(cancel_btn)
+
+                    # hbox를 메인 layout에 추가
+                    layout.addLayout(hbox)
+
+                self.scrollAreaWidgetContents.setLayout(layout)
+            else:
+                QMessageBox.warning(self, "에러", "주문 내역을 불러올 수 없습니다.")
+        except Exception as e:
+            QMessageBox.critical(self, "에러", f"주문 내역 조회 중 오류가 발생했습니다.\n{str(e)}")
+
+    def cancelOrder(self, order_id):
+        """
+        주문 취소: DELETE /api/orders/{orderId}
+        성공 시 '주문 취소 완료' 메시지 후, 주문 내역 다시 갱신
+        """
+        url = f"http://localhost:8000/api/orders/{order_id}"
+        try:
+            resp = requests.delete(url)
+            if resp.status_code == 200:
+                res_json = resp.json()
+                status = res_json.get("status", "")
+                message = res_json.get("message", "No message.")
+                if status == "success":
+                    QMessageBox.information(self, "주문 취소", message)
+                    # 주문 목록 다시 불러오기
+                    self.loadOrders()
+                else:
+                    QMessageBox.warning(self, "실패", message)
+            else:
+                QMessageBox.warning(self, "오류", "주문 취소에 실패했습니다.")
+        except Exception as e:
+            QMessageBox.critical(self, "에러", f"주문 취소 중 오류가 발생했습니다.\n{str(e)}")
+
+    def updateUser(self):
+        """
+        POST /api/users/{userId} 로 유저 정보 수정 요청
+        (name, address, email 만 수정한다고 가정)
+        """
+        if not self.user_id:
+            return
+
+        url = f"http://localhost:8000/api/users/{self.user_id}"
+        data = {
+            "name": self.name.text(),
+            "address": self.address.text(),
+            "email": self.email.text()
+        }
+
+        try:
+            resp = requests.post(url, json=data)
+            if resp.status_code == 200:
+                res_json = resp.json()
+                status = res_json.get("status", "")
+                message = res_json.get("message", "No message.")
+                if status == "success":
+                    QMessageBox.information(self, "성공", message)
+                else:
+                    QMessageBox.warning(self, "실패", message)
+            else:
+                QMessageBox.warning(self, "오류", "유저 정보 수정에 실패했습니다.")
+        except Exception as e:
+            QMessageBox.critical(self, "에러", f"유저 정보 수정 중 오류가 발생했습니다.\n{str(e)}")
+
+    def deleteUser(self):
+        """
+        DELETE /api/users/{userId} 로 유저 삭제
+        성공 시 로그인 페이지로 돌아간다고 가정
+        """
+        if not self.user_id:
+            return
+
+        url = f"http://localhost:8000/api/users/{self.user_id}"
+        try:
+            resp = requests.delete(url)
+            if resp.status_code == 200:
+                res_json = resp.json()
+                status = res_json.get("status", "")
+                message = res_json.get("message", "No message.")
+                if status == "success":
+                    QMessageBox.information(self, "탈퇴 완료", message)
+                    # 창 닫고 -> 로그인 창으로 이동 (예시로 현재 창만 닫는 로직)
+                    self.close()
+                else:
+                    QMessageBox.warning(self, "실패", message)
+            else:
+                QMessageBox.warning(self, "오류", "유저 탈퇴에 실패했습니다.")
+        except Exception as e:
+            QMessageBox.critical(self, "에러", f"유저 삭제 중 오류가 발생했습니다.\n{str(e)}")
+
+
 
 
 class MainPage(QMainWindow, MainUIClass):
@@ -54,6 +232,13 @@ class MainPage(QMainWindow, MainUIClass):
 
         # 프로그램 실행 시점에서 총 금액 한 번 갱신
         self.updateTotal()
+
+        self.my_menu.clicked.connect(self.openMyPage)
+
+    def openMyPage(self):
+        """마이페이지 창 열기"""
+        self.my_page = MyPage(user_id=self.user_id)
+        self.my_page.show()
 
     def incrementSpinbox(self, spinbox):
         """해당 SpinBox 값을 1 증가"""
