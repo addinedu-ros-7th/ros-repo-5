@@ -50,13 +50,7 @@ class LoginRequest(BaseModel):
 # ------------------------------------------------------------------------------
 @router.post("/api/login")
 def login(req: LoginRequest, request: Request) -> dict:
-    """
-    로그인
-    POST /api/login
-    body:
-      { "userId": "user01", "password": "1234" }
-    """
-    db = request.app.state.db  # DBManager
+    db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
 
@@ -66,7 +60,6 @@ def login(req: LoginRequest, request: Request) -> dict:
         raise HTTPException(status_code=404, detail="User not found")
 
     stored_password = rows[0][0]
-    # 실제 서비스에선 해싱해서 비교해야 함
     if stored_password != req.password:
         raise HTTPException(status_code=401, detail="Invalid password")
 
@@ -78,20 +71,6 @@ def login(req: LoginRequest, request: Request) -> dict:
 # ------------------------------------------------------------------------------
 @router.post("/api/users")
 def create_user(req: CreateUserRequest, request: Request) -> dict:
-    """
-    유저 생성
-    POST /api/users
-    body:
-      {
-        "name": "...",
-        "id": "...",
-        "password": "...",
-        "address": "...",
-        "email": "..."
-      }
-    response:
-      { "status": "success", "message": "User created successfully" }
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -107,15 +86,8 @@ def create_user(req: CreateUserRequest, request: Request) -> dict:
 
     return {"status": "success", "message": "User created successfully"}
 
-
 @router.delete("/api/users/{userId}")
 def delete_user(userId: str, request: Request) -> dict:
-    """
-    유저 삭제
-    DELETE /api/users/{userId}
-    response:
-      { "status": "success", "message": "User deleted successfully" }
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -130,20 +102,8 @@ def delete_user(userId: str, request: Request) -> dict:
 
     return {"status": "success", "message": "User deleted successfully"}
 
-
 @router.get("/api/users/{userId}")
 def get_user_info(userId: str, request: Request) -> dict:
-    """
-    유저 정보 조회
-    GET /api/users/{userId}
-    예시:
-      {
-        "name": "홍길동",
-        "id": "user01",
-        "address": "서울",
-        "email": "hong@example.com"
-      }
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -161,17 +121,8 @@ def get_user_info(userId: str, request: Request) -> dict:
         "email": email
     }
 
-
 @router.post("/api/users/{userId}")
 def update_user_info(userId: str, req: UpdateUserRequest, request: Request) -> dict:
-    """
-    유저 정보 수정
-    POST /api/users/{userId}
-    body:
-      { "name": "홍길동", "address": "부산", "email": "hong_new@example.com" }
-    response:
-      { "status": "success", "message": "User updated successfully" }
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -203,19 +154,8 @@ def update_user_info(userId: str, req: UpdateUserRequest, request: Request) -> d
 
     return {"status": "success", "message": "User updated successfully"}
 
-
 @router.get("/api/users")
 def get_all_users(request: Request) -> dict:
-    """
-    모든 사용자 목록 조회
-    GET /api/users
-    예시:
-      {
-        "users": [
-          { "name": "홍길동", "id": "user01", "address": "서울", "email": "hong@example.com" }
-        ]
-      }
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -244,7 +184,7 @@ def create_order(req: CreateOrderRequest, request: Request) -> dict:
     주문 생성
     POST /api/orders
     body:
-      { "userId": "user01", "cart": { "item1": 3, "item2": 2 } }
+      { "userId": "user01", "cart": { "냉동1": 3, "신선2": 2 } }
     """
     db = request.app.state.db
     order_service = request.app.state.order_service
@@ -262,19 +202,12 @@ def create_order(req: CreateOrderRequest, request: Request) -> dict:
             price = rows[0][0]
             total_price += (price * qty)
 
-    # 로봇 스케줄링
-    o = Order(req.userId, order_id, req.cart)
-    assigned_robot_id = order_service.assign_order(o)
-
+    # 주문 정보 DB insert
     insert_order_sql = """
     INSERT INTO orders (order_id, user_id, order_status, price)
     VALUES (%s, %s, %s, %s)
     """
-
-    if assigned_robot_id is None:
-        db.execute_query(insert_order_sql, (order_id, req.userId, "queued", total_price))
-    else:
-        db.execute_query(insert_order_sql, (order_id, req.userId, "assigned", total_price))
+    db.execute_query(insert_order_sql, (order_id, req.userId, "queued", total_price))
 
     for product_id, qty in req.cart.items():
         insert_item_sql = """
@@ -283,17 +216,22 @@ def create_order(req: CreateOrderRequest, request: Request) -> dict:
         """
         db.execute_query(insert_item_sql, (order_id, product_id, qty))
 
-    # 로봇 스케줄링
+    # Order 도메인 객체 생성 및 로봇 스케줄링
     o = Order(req.userId, order_id, req.cart)
     assigned_robot_id = order_service.assign_order(o)
 
     if assigned_robot_id is None:
+        # 로봇이 없어서 queued
         return {
             "status": "queued",
             "orderId": order_id,
             "message": "No available robot. Order queued."
         }
     else:
+        # 바로 할당됨
+        update_sql = "UPDATE orders SET order_status='assigned' WHERE order_id=%s"
+        db.execute_query(update_sql, (order_id,))
+
         return {
             "status": "assigned",
             "orderId": order_id,
@@ -303,11 +241,6 @@ def create_order(req: CreateOrderRequest, request: Request) -> dict:
 
 @router.get("/api/orders")
 def get_orders(userId: Optional[str] = None, request: Request = None) -> dict:
-    """
-    모든 주문 목록 조회
-    GET /api/orders?userId=user01
-    or GET /api/orders
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -340,12 +273,6 @@ def get_orders(userId: Optional[str] = None, request: Request = None) -> dict:
 
 @router.delete("/api/orders/{orderId}")
 def cancel_order(orderId: str, request: Request) -> dict:
-    """
-    주문 취소
-    DELETE /api/orders/{orderId}
-    response:
-      { "status": "success", "message": "Order canceled successfully" }
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -369,10 +296,6 @@ def cancel_order(orderId: str, request: Request) -> dict:
 # ------------------------------------------------------------------------------
 @router.get("/api/robots/status")
 def get_robots_status(request: Request) -> dict:
-    """
-    모든 로봇들의 현재 상태 조회
-    GET /api/robots/status
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -405,10 +328,6 @@ def get_robots_status(request: Request) -> dict:
 
 @router.get("/api/robots/locations")
 def get_robot_locations(request: Request) -> dict:
-    """
-    모든 로봇들의 현재 위치 조회
-    GET /api/robots/locations
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -447,10 +366,6 @@ def get_robot_locations(request: Request) -> dict:
 
 @router.get("/api/robots/logs")
 def get_robots_logs(request: Request) -> dict:
-    """
-    로봇의 모든 로그 조회
-    GET /api/robots/logs
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
@@ -478,12 +393,6 @@ def get_robots_logs(request: Request) -> dict:
 
 @router.post("/api/robots/waiting-time")
 def update_robot_waiting_time(req: RobotWaitingTimeRequest, request: Request) -> dict:
-    """
-    로봇 대기 필요시간 입력
-    POST /api/robots/waiting-time
-    body:
-      { "robotId": "robot01", "waitingTime": 10 }
-    """
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")

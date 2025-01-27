@@ -21,18 +21,15 @@ class RobotNavigationServer(Node):
     def execute_callback(self, goal_handle):
         self.get_logger().info(f"[{self.robot_id} Navigation] Received goal: {goal_handle.request.stations}")
 
-        feedback_msg = NavDelivery.Feedback()  # <-- 생성
+        feedback_msg = NavDelivery.Feedback()
         success = True
 
-        # 예: feedback_msg.current_pose 는 PoseStamped
-        # (전제: NavDelivery.action의 feedback 정의에 geometry_msgs/PoseStamped current_pose가 있어야 함)
         for i in range(5):
             time.sleep(1)
             feedback_msg.current_pose.header.frame_id = f"Moving... {i+1}/5"
             feedback_msg.distance_remaining = float(5 - (i+1))
             goal_handle.publish_feedback(feedback_msg)
 
-        # 완료 시 result
         goal_handle.succeed()
         result = NavDelivery.Result()
         result.success = success

@@ -1,14 +1,16 @@
-# ManipulationTask.action
+# task_manager/action/ManipulationTask.action
 
-# ---- Request (Goal) ----
+# Goal
 string target_station
+string[] item_names
+int32[] item_quantities
 
 ---
-# ---- Result ----
+# Result
 bool success
 int32 error_code
 string error_msg
 
 ---
-# ---- Feedback ----
+# Feedback
 float32 progress

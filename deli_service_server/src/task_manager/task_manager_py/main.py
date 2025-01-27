@@ -15,7 +15,7 @@ from task_manager_py.infrastructure.db_manager import DBManager
 from task_manager_py.domain.models.robot import Robot
 from task_manager_py.application.use_cases.order_service import OrderService
 
-# ROS 액션 서버
+# ROS 액션 서버 (이동/조작)
 from task_manager_py.adapters.ros.robot_navigation_server import RobotNavigationServer
 from task_manager_py.adapters.ros.robot_manipulator_server import RobotManipulatorServer
 
@@ -23,7 +23,6 @@ def background_occupy(order_service_instance: OrderService):
     while True:
         order_service_instance.reduce_occupied_time()
         time.sleep(1)
-
 
 def ros_spin(all_nodes):
     executor = MultiThreadedExecutor()
@@ -36,7 +35,6 @@ def ros_spin(all_nodes):
             node.destroy_node()
         rclpy.shutdown()
 
-
 def create_app() -> FastAPI:
     app = FastAPI()
 
@@ -45,13 +43,15 @@ def create_app() -> FastAPI:
     app.state.db = db
 
     # 2) 로봇 + 매대 → OrderService 생성
+    # 주행 로봇 3대
     robots = {
         "robot1": Robot("robot1", "Robot1", 1.0),
         "robot2": Robot("robot2", "Robot2", 1.0),
         "robot3": Robot("robot3", "Robot3", 1.0)
     }
+    # 매대 점유 정보
     occupied_info = {"냉동": (False, 0), "신선": (False, 0), "일반": (False, 0)}
-    service = OrderService(robots, occupied_info)
+    service = OrderService(robots, occupied_info, db)
     app.state.order_service = service
 
     # 3) FastAPI 라우터
@@ -63,30 +63,34 @@ def create_app() -> FastAPI:
 
     return app
 
-
 def main():
     rclpy.init()
 
-    # 액션 서버 3대 (네비게이션 + 매니퓰레이션)
+    # ---- 액션 서버 준비 ----
+    # (1) 주행 로봇 서버 3대
     nav_server_r1 = RobotNavigationServer("robot1")
     nav_server_r2 = RobotNavigationServer("robot2")
     nav_server_r3 = RobotNavigationServer("robot3")
 
-    manip_server_r1 = RobotManipulatorServer("robot1")
-    manip_server_r2 = RobotManipulatorServer("robot2")
-    manip_server_r3 = RobotManipulatorServer("robot3")
+    # (2) 매대 로봇팔 서버 3대
+    manip_server_cold = RobotManipulatorServer("manipulator_cold")
+    manip_server_fresh = RobotManipulatorServer("manipulator_fresh")
+    manip_server_normal = RobotManipulatorServer("manipulator_normal")
 
+    # FastAPI 앱 생성
     app = create_app()
     order_service = app.state.order_service
 
-    # OrderService 내부 로봇 클라이언트 노드
+    # OrderService 내부 로봇 클라이언트 노드들 (주행 로봇 클라이언트)
     client_nodes = list(order_service.robot_clients.values())
+    # 매대 로봇팔 클라이언트 노드들
+    manipulator_nodes = list(order_service.manipulator_clients.values())
 
     # 모든 노드를 하나의 Executor에서 spin
     all_nodes = [
         nav_server_r1, nav_server_r2, nav_server_r3,
-        manip_server_r1, manip_server_r2, manip_server_r3
-    ] + client_nodes
+        manip_server_cold, manip_server_fresh, manip_server_normal
+    ] + client_nodes + manipulator_nodes
 
     ros_thread = threading.Thread(
         target=ros_spin,
@@ -95,12 +99,11 @@ def main():
     )
     ros_thread.start()
 
-    # FastAPI
+    # FastAPI 서버 실행
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
     # 종료 시 DB 연결 정리
     app.state.db.close()
-
 
 if __name__ == "__main__":
     main()
