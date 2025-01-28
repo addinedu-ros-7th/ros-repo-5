@@ -13,6 +13,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/ManipulationTask.action"
   "msg/PickUP.msg"
   "msg/Task.msg"
+  "msg/BatteryLevel.msg"
   DEPENDENCIES builtin_interfaces geometry_msgs
 )
 

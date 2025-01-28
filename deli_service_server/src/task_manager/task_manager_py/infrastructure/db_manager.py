@@ -4,24 +4,24 @@ import pymysql
 
 class DBManager:
     def __init__(self, host, user, password, db):
-        self.conn = pymysql.connect(
-            host=host, 
-            user=user, 
-            password=password, 
-            db=db, 
-            charset='utf8'
-        )
+        self.host = host
+        self.user = user
+        self.password = password
+        self.db = db
 
     def execute_query(self, query, args=None):
-        """
-        SELECT, UPDATE, INSERT 등 모든 쿼리에 사용.
-        결과가 필요한 경우에는 fetchall() 결과를 리턴.
-        """
-        with self.conn.cursor() as cursor:
-            cursor.execute(query, args)
-            self.conn.commit()
-            return cursor.fetchall()
+        conn = pymysql.connect(
+            host=self.host,
+            user=self.user,
+            password=self.password,
+            db=self.db
+        )
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(query, args)
+                result = cursor.fetchall()
+            conn.commit()
+        finally:
+            conn.close()
 
-    def close(self):
-        self.conn.close()
-
+        return result

@@ -3,27 +3,41 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
+from rclpy.subscription import Subscription
+from std_msgs.msg import Float32
 from typing import Callable, Optional
+from datetime import datetime
 
-# 이동(Navigation)에만 사용
 from task_manager.action import NavDelivery
+from task_manager_py.infrastructure.db_manager import DBManager
+from task_manager_py.domain.models.robot import Robot
 
 class MobileRobotActionClient(Node):
     """
-    주행 로봇 전용 액션 클라이언트 (이동 기능만 담당).
-    robot_id는 'robot1', 'robot2', 'robot3' 등 주행 로봇의 고유 ID.
+    주행 로봇 액션 클라이언트.
+    - 로봇 서버(NavDelivery)에 이동 Goal 전송
+    - 배터리 레벨 Subscribe
+    - 클라이언트 단에서 로그(deli_bot_logs)에 INSERT
     """
-    def __init__(self, robot_id: str):
-        super().__init__(f"{robot_id}_action_client")
+    def __init__(self, robot_id: str, robot_obj: Robot, db: DBManager):
+        super().__init__(f"robot_{robot_id}_action_client")
         self.robot_id = robot_id
+        self.robot_obj = robot_obj  # 도메인 모델
+        self.db = db                # DBManager
 
-        # ---------------------------
-        #  Navigation ActionClient
-        # ---------------------------
+        # (1) 액션 클라이언트
         self._nav_action_client = ActionClient(
             self,
             NavDelivery,
-            f"/{robot_id}/navigation_task"
+            f"/robot_{robot_id}/navigation_task"
+        )
+
+        # (2) 배터리 Subscribe
+        self._battery_sub: Subscription = self.create_subscription(
+            Float32,
+            f"/robot_{robot_id}/battery",
+            self._battery_callback,
+            10
         )
 
     def navigate_to_station(
@@ -32,73 +46,97 @@ class MobileRobotActionClient(Node):
         done_cb: Optional[Callable[[bool], None]] = None
     ):
         """
-        주행 로봇을 station으로 이동시키는 비동기 요청.
-        :param station: 이동해야 할 스테이션(문자열)
-        :param done_cb: 이동 완료 후 호출될 콜백 (인자: bool 성공여부)
+        주행 로봇을 station으로 이동시키는 비동기 요청
         """
-        # 1) Goal 메시지 생성
+        # 로그: 주문 수행 시작
+        self._save_mobile_log(
+            status=f"주문 수행 시작 -> {station}",
+            location=f"x:{self.robot_obj.location[0]:.2f}, y:{self.robot_obj.location[1]:.2f}"
+        )
+
         goal_msg = NavDelivery.Goal()
         goal_msg.stations = [station]
 
-        self.get_logger().info(f"[{self.robot_id} Client] Sending navigation goal -> {station}")
+        self.get_logger().info(f"[{self.robot_id}_client] Sending navigation goal -> {station}")
 
-        # 2) 서버가 준비됐는지 확인
         if not self._nav_action_client.wait_for_server(timeout_sec=2.0):
             self.get_logger().error("Navigation action server not available!")
+            # 주문 수행 실패 로그
+            self._save_mobile_log(status="서버 연결 실패", location="N/A")
             if done_cb:
                 done_cb(False)
             return
 
-        # 3) Goal 전송 (비동기)
         send_goal_future = self._nav_action_client.send_goal_async(
             goal_msg,
             feedback_callback=self._nav_feedback_cb
         )
-        # 4) Goal 요청 결과 콜백 등록
         send_goal_future.add_done_callback(
-            lambda future: self._nav_goal_response_callback(future, done_cb)
+            lambda future: self._nav_goal_response_callback(future, station, done_cb)
         )
+
+    def _battery_callback(self, msg: Float32):
+        """
+        배터리 레벨 Subscribe 콜백
+        """
+        new_level = msg.data
+        self.robot_obj.battery_level = new_level
+        # 필요 시 로깅하거나, 특정 임계치 미만 시 동작 트리거 등을 추가 가능
 
     def _nav_feedback_cb(self, feedback_msg):
         """
-        네비게이션 작업의 진행 상황 피드백
+        이동 중 피드백 콜백
         """
         feedback = feedback_msg.feedback
         self.get_logger().info(
-            f"[{self.robot_id} Navigation Feedback] "
-            f"Pose={feedback.current_pose.header.frame_id}, "
-            f"Dist remaining={feedback.distance_remaining}"
+            f"[{self.robot_id}_client] Navigation Feedback: Pose={feedback.current_pose.header.frame_id}, dist={feedback.distance_remaining}"
         )
+        # 위치 갱신 (데모용)
+        dist = feedback.distance_remaining
+        self.robot_obj.location = (dist, dist)
 
-    def _nav_goal_response_callback(self, future, done_cb: Optional[Callable[[bool], None]]):
-        """
-        서버가 Goal을 수락 혹은 거부한 직후의 콜백
-        """
+    def _nav_goal_response_callback(self, future, station: str, done_cb: Optional[Callable[[bool], None]]):
         goal_handle = future.result()
         if not goal_handle.accepted:
-            self.get_logger().error("Navigation goal rejected!")
+            self.get_logger().error(f"Navigation goal to {station} rejected!")
+            self._save_mobile_log(status="Goal Rejected", location="N/A")
             if done_cb:
                 done_cb(False)
             return
 
-        # 수락된 경우 이동 완료 결과 기다리기
         get_result_future = goal_handle.get_result_async()
         get_result_future.add_done_callback(
-            lambda r: self._nav_result_callback(r, done_cb)
+            lambda r: self._nav_result_callback(r, station, done_cb)
         )
 
-    def _nav_result_callback(self, future, done_cb: Optional[Callable[[bool], None]]):
-        """
-        네비게이션 액션 결과 도착 시 콜백
-        """
+    def _nav_result_callback(self, future, station: str, done_cb: Optional[Callable[[bool], None]]):
         result = future.result().result
         if result.success:
-            self.get_logger().info(
-                f"[{self.robot_id} Client] Navigation finished: {result.error_msg}"
+            self.get_logger().info(f"[{self.robot_id}_client] Navigation finished: {result.error_msg}")
+            self._save_mobile_log(
+                status=f"주문 수행 완료 -> {station}",
+                location=f"x:{self.robot_obj.location[0]:.2f}, y:{self.robot_obj.location[1]:.2f}"
             )
             if done_cb:
                 done_cb(True)
         else:
             self.get_logger().error(f"Navigation failed: {result.error_msg}")
+            self._save_mobile_log(status="Navigation Failed", location="N/A")
             if done_cb:
                 done_cb(False)
+
+    def _save_mobile_log(self, status: str, location: str):
+        """
+        deli_bot_logs에 클라이언트 단에서 INSERT
+        """
+        if not self.db:
+            return
+        sql = """
+        INSERT INTO deli_bot_logs (robot_id, status, location, time)
+        VALUES (%s, %s, %s, %s)
+        """
+        import datetime
+        now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # robot_id가 int 형태여야 한다고 가정
+        rid_int = int(self.robot_id)
+        self.db.execute_query(sql, (rid_int, status, location, now_str))

@@ -6,8 +6,7 @@ class Order:
         self.order_id = order_id
         self.cart = cart
         self.order_status = ""
-        self.station_list = None
-        
-        # [NEW] 스테이션별로 어떤 제품을 몇 개 담아야 하는지 저장할 딕셔너리
-        # 예: {"냉동": {"냉동1": 2, "냉동2": 1}, "신선": {...}, ...}
+
+        # 역 내 스테이션 방문 목록, 아이템 맵
+        self.station_list = []
         self.station_items_map = {}

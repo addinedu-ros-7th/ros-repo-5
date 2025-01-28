@@ -10,100 +10,141 @@ from rclpy.executors import MultiThreadedExecutor
 import uvicorn
 from fastapi import FastAPI
 
-# DB, 도메인
 from task_manager_py.infrastructure.db_manager import DBManager
 from task_manager_py.domain.models.robot import Robot
 from task_manager_py.application.use_cases.order_service import OrderService
-
-# ROS 액션 서버 (이동/조작)
 from task_manager_py.adapters.ros.robot_navigation_server import RobotNavigationServer
 from task_manager_py.adapters.ros.robot_manipulator_server import RobotManipulatorServer
 
+# ------------------------------------------------------------
+# 전역 영역에서 FastAPI 인스턴스 선언
+# ------------------------------------------------------------
+app: FastAPI = None
+
 def background_occupy(order_service_instance: OrderService):
+    """주기적으로 station의 remain_time(occupied_time)을 감소시키는 쓰레드."""
+    print(">>> background_occupy thread started!")
     while True:
         order_service_instance.reduce_occupied_time()
         time.sleep(1)
 
 def ros_spin(all_nodes):
+    """
+    ROS2 노드들을 병렬 처리(MultiThreadedExecutor)로 spin.
+    """
+    print(">>> ros_spin thread started!")
     executor = MultiThreadedExecutor()
     for node in all_nodes:
         executor.add_node(node)
+    print(">>> Executor spin() ...")
     try:
         executor.spin()
     finally:
         for node in all_nodes:
             node.destroy_node()
         rclpy.shutdown()
+        print(">>> rclpy shutdown done.")
 
 def create_app() -> FastAPI:
+    """
+    FastAPI 인스턴스를 생성하고 필요한 리소스를 주입.
+    """
+    print(">>> create_app() called!")
     app = FastAPI()
 
-    # 1) DBManager
-    db = DBManager(host="localhost", user="root", password="0000", db="deli")
-    app.state.db = db
+    # DB 초기화
+    try:
+        db = DBManager(host="localhost", user="root", password="0000", db="deli")
+        app.state.db = db
+        print(">>> DBManager created successfully.")
+    except Exception as e:
+        print(f"!!! DBManager creation failed: {e}")
+        raise
 
-    # 2) 로봇 + 매대 → OrderService 생성
-    # 주행 로봇 3대
+    # 로봇 세팅 (주행 3대 + 로봇팔 3대)
     robots = {
-        "robot1": Robot("robot1", "Robot1", 1.0),
-        "robot2": Robot("robot2", "Robot2", 1.0),
-        "robot3": Robot("robot3", "Robot3", 1.0)
+        "1": Robot("1", "주행로봇1", 1.0, robot_type="주행"),
+        "2": Robot("2", "주행로봇2", 1.0, robot_type="주행"),
+        "3": Robot("3", "주행로봇3", 1.0, robot_type="주행"),
+        "10": Robot("10", "냉동로봇팔", 1.0, robot_type="로봇팔"),
+        "11": Robot("11", "신선로봇팔", 1.0, robot_type="로봇팔"),
+        "12": Robot("12", "일반로봇팔", 1.0, robot_type="로봇팔"),
     }
-    # 매대 점유 정보
+    print(f">>> Created robots: {list(robots.keys())}")
+
+    # 스테이션 점유 정보
     occupied_info = {"냉동": (False, 0), "신선": (False, 0), "일반": (False, 0)}
+
+    # OrderService
     service = OrderService(robots, occupied_info, db)
     app.state.order_service = service
+    print(">>> OrderService created and set to app.state.order_service")
 
-    # 3) FastAPI 라우터
+    # FastAPI 라우터 등록 (예시)
     from task_manager_py.adapters.fastapi.fastapi_server import router
     app.include_router(router)
+    print(">>> Router included!")
 
-    # 4) 주기적으로 remain_time 감소
+    # 백그라운드 쓰레드에서 station remain_time 감소
     threading.Thread(target=background_occupy, args=(service,), daemon=True).start()
 
     return app
 
 def main():
+    """
+    ros2 run task_manager main
+    """
+    print(">>> main() called!")
+    # 1) rclpy 초기화
     rclpy.init()
+    print(">>> rclpy.init() done.")
 
-    # ---- 액션 서버 준비 ----
-    # (1) 주행 로봇 서버 3대
-    nav_server_r1 = RobotNavigationServer("robot1")
-    nav_server_r2 = RobotNavigationServer("robot2")
-    nav_server_r3 = RobotNavigationServer("robot3")
+    # 2) ROS2 액션 서버 생성 (주행로봇 3대 / 로봇팔 3대)
+    print(">>> Creating RobotNavigationServer for 1,2,3...")
+    nav_server_r1 = RobotNavigationServer("1")
+    nav_server_r2 = RobotNavigationServer("2")
+    nav_server_r3 = RobotNavigationServer("3")
 
-    # (2) 매대 로봇팔 서버 3대
+    print(">>> Creating RobotManipulatorServer for cold,fresh,normal...")
     manip_server_cold = RobotManipulatorServer("manipulator_cold")
     manip_server_fresh = RobotManipulatorServer("manipulator_fresh")
     manip_server_normal = RobotManipulatorServer("manipulator_normal")
 
-    # FastAPI 앱 생성
+    # 3) FastAPI 앱 생성(전역 변수 app)
+    global app
     app = create_app()
-    order_service = app.state.order_service
 
-    # OrderService 내부 로봇 클라이언트 노드들 (주행 로봇 클라이언트)
+    # 디버그
+    order_service = app.state.order_service
+    print(f">>> order_service.robots keys: {list(order_service.robots.keys())}")
+    print(f">>> order_service.occupied_info: {order_service.occupied_info}")
+
+    # 4) OrderService 안에 있는 클라이언트 노드들
     client_nodes = list(order_service.robot_clients.values())
-    # 매대 로봇팔 클라이언트 노드들
     manipulator_nodes = list(order_service.manipulator_clients.values())
 
-    # 모든 노드를 하나의 Executor에서 spin
+    # 5) 모든 노드를 합쳐 spin
     all_nodes = [
-        nav_server_r1, nav_server_r2, nav_server_r3,
-        manip_server_cold, manip_server_fresh, manip_server_normal
+        nav_server_r1,
+        nav_server_r2,
+        nav_server_r3,
+        manip_server_cold,
+        manip_server_fresh,
+        manip_server_normal
     ] + client_nodes + manipulator_nodes
 
+    # 6) ROS2 spin을 백그라운드 쓰레드에서 실행
     ros_thread = threading.Thread(
         target=ros_spin,
         args=(all_nodes,),
         daemon=True
     )
     ros_thread.start()
+    print(">>> ros_thread started!")
 
-    # FastAPI 서버 실행
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
-    # 종료 시 DB 연결 정리
-    app.state.db.close()
+    # 7) uvicorn으로 FastAPI 서버 실행
+    print(">>> Starting uvicorn server on 0.0.0.0:8000 ...")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
 
 if __name__ == "__main__":
     main()

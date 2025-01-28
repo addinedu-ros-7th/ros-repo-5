@@ -194,6 +194,7 @@ def create_order(req: CreateOrderRequest, request: Request) -> dict:
     import uuid
     order_id = "order_" + str(uuid.uuid4())[:8]
 
+    # 총 가격 계산
     total_price = 0.0
     for product_id, qty in req.cart.items():
         sql = "SELECT price FROM products WHERE product_id=%s"
@@ -202,13 +203,14 @@ def create_order(req: CreateOrderRequest, request: Request) -> dict:
             price = rows[0][0]
             total_price += (price * qty)
 
-    # 주문 정보 DB insert
+    # 주문 정보: 기본 상태를 'queued'로 INSERT
     insert_order_sql = """
     INSERT INTO orders (order_id, user_id, order_status, price)
     VALUES (%s, %s, %s, %s)
     """
     db.execute_query(insert_order_sql, (order_id, req.userId, "queued", total_price))
 
+    # 주문 아이템 정보 INSERT
     for product_id, qty in req.cart.items():
         insert_item_sql = """
         INSERT INTO order_items (order_id, product_id, quantity)
@@ -216,26 +218,26 @@ def create_order(req: CreateOrderRequest, request: Request) -> dict:
         """
         db.execute_query(insert_item_sql, (order_id, product_id, qty))
 
-    # Order 도메인 객체 생성 및 로봇 스케줄링
+    # Order 객체 생성 및 로봇 할당 시도
     o = Order(req.userId, order_id, req.cart)
     assigned_robot_id = order_service.assign_order(o)
 
     if assigned_robot_id is None:
-        # 로봇이 없어서 queued
+        # 로봇 할당 불가 -> 상태 유지(queued 상태)
         return {
             "status": "queued",
             "orderId": order_id,
             "message": "No available robot. Order queued."
         }
     else:
-        # 바로 할당됨
-        update_sql = "UPDATE orders SET order_status='assigned' WHERE order_id=%s"
-        db.execute_query(update_sql, (order_id,))
+        # 로봇 할당 성공 -> 주문 상태를 'assigned'로 업데이트
+        update_sql = "UPDATE orders SET order_status = %s WHERE order_id = %s"
+        db.execute_query(update_sql, ("assigned", order_id))
 
         return {
             "status": "assigned",
             "orderId": order_id,
-            "message": "Order created successfully"
+            "message": "Order created and assigned successfully"
         }
 
 
@@ -296,98 +298,107 @@ def cancel_order(orderId: str, request: Request) -> dict:
 # ------------------------------------------------------------------------------
 @router.get("/api/robots/status")
 def get_robots_status(request: Request) -> dict:
-    db = request.app.state.db
-    if db is None:
-        raise HTTPException(status_code=500, detail="DB Manager not set")
-
-    sql = "SELECT robot_id, type, name, waiting_time FROM robots"
-    rows = db.execute_query(sql)
+    """
+    도메인 모델의 Robot 객체 정보(상태)를 조회.
+    - battery_level
+    - waiting_time
+    - busy 여부
+    - remaining_items
+    - carrying_items
+    - ...
+    """
+    order_service = request.app.state.order_service
+    if not order_service:
+        raise HTTPException(status_code=500, detail="OrderService not set")
 
     results = []
-    for (robot_id, rtype, name, waiting_time) in rows:
-        if rtype == "주행":
-            status = "주문처리중"
-            remaining_items = {"item1": 3, "item2": 2}
-            carrying_items = {"item3": 3, "item4": 2}
-            results.append({
-                "id": robot_id,
-                "type": rtype,
-                "status": status,
-                "remainingItems": remaining_items,
-                "carryingItems": carrying_items
-            })
-        else:
-            status = "대기중"
-            results.append({
-                "id": robot_id,
-                "type": rtype,
-                "status": status
-            })
+    for r_id, robot_obj in order_service.robots.items():
+        # 로봇 바쁜 상태인지
+        status_str = "주문처리중" if robot_obj.busy else "대기중"
+
+        data = {
+            "robotId": robot_obj.robot_id,
+            "name": robot_obj.name,
+            "type": robot_obj.robot_type,
+            "batteryLevel": robot_obj.battery_level,
+            "waitingTime": robot_obj.waiting_time,
+            "status": status_str,
+            "location": {
+                "x": robot_obj.location[0],
+                "y": robot_obj.location[1]
+            },
+            "remainingItems": robot_obj.remaining_items,
+            "carryingItems": robot_obj.carrying_items
+        }
+        results.append(data)
+
     return {"robots": results}
 
 
 @router.get("/api/robots/locations")
 def get_robot_locations(request: Request) -> dict:
-    db = request.app.state.db
-    if db is None:
-        raise HTTPException(status_code=500, detail="DB Manager not set")
+    """
+    도메인 모델에 Robot.location = (x,y)가 있다고 가정.
+    각 로봇의 현재 위치 반환.
+    """
+    print(">>> /api/robots/locations called!")
+    order_service = request.app.state.order_service
+    if not order_service:
+        print("!!! order_service is None.")
+        raise HTTPException(status_code=500, detail="OrderService not set")
 
-    sql_robots = "SELECT robot_id FROM robots"
-    rows_robots = db.execute_query(sql_robots)
-
+    print(f">>> order_service.robots: {order_service.robots}")
     locations = []
-    for (robot_id,) in rows_robots:
-        sql_log = """
-        SELECT location
-        FROM deli_bot_logs
-        WHERE robot_id=%s
-        ORDER BY time DESC
-        LIMIT 1
-        """
-        logs = db.execute_query(sql_log, (robot_id,))
-        if len(logs) == 0 or not logs[0][0]:
-            x, y = (0.0, 0.0)
-        else:
-            loc_str = logs[0][0]
-            parts = loc_str.split(",")
-            if len(parts) == 2:
-                x, y = float(parts[0]), float(parts[1])
-            else:
-                x, y = (0.0, 0.0)
-
+    for r_id, robot_obj in order_service.robots.items():
+        x, y = robot_obj.location
         locations.append({
-            "id": robot_id,
+            "robotId": r_id,
             "x": x,
             "y": y
         })
 
+    print(f">>> returning locations: {locations}")
     return {"locations": locations}
 
 
 @router.get("/api/robots/logs")
 def get_robots_logs(request: Request) -> dict:
+    """
+    deli_bot_logs (주행 로봇 로그), deli_arm_logs (로봇팔 로그)
+    두 테이블을 UNION ALL 한 뒤, 시간 순으로 정렬하여 반환.
+    """
     db = request.app.state.db
-    if db is None:
+    if not db:
         raise HTTPException(status_code=500, detail="DB Manager not set")
 
+    # UNION ALL 쿼리
     sql = """
-    SELECT robot_id, status as event, time
+    SELECT robot_id, status, location, time
     FROM deli_bot_logs
     UNION ALL
-    SELECT robot_id, status as event, time
+    SELECT robot_id, status, NULL as location, time
     FROM deli_arm_logs
     ORDER BY time
     """
     rows = db.execute_query(sql)
 
     results = []
-    for (rid, evt, t) in rows:
-        iso_str = t.strftime("%Y-%m-%dT%H:%M:%SZ")
+    for row in rows:
+        """
+        deli_bot_logs  -> (robot_id, status, location, time)
+        deli_arm_logs  -> (robot_id, status, NULL, time)
+        """
+        robot_id, status, location, timestamp = row
+        # 시간을 ISO 포맷으로 (예: 2023-02-09T18:44:00Z)
+        iso_str = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+
         results.append({
-            "robotId": rid,
-            "event": evt,
+            "robotId": robot_id,
+            "status": status,
+            "location": location if location else "",
             "timestamp": iso_str
         })
+
     return {"logs": results}
 
 
