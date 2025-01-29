@@ -6,6 +6,11 @@ from task_manager_py.adapters.ros.mobile_robot_action_client import MobileRobotA
 from task_manager_py.adapters.ros.station_manipulator_client import StationManipulatorClient
 from task_manager_py.domain.models.order import Order
 
+# 필요하다면 아래 상수 정의를 제거하거나, 다른 용도로 사용할 수도 있음
+# ROBOT_OCCUPIED_PENALTY = 20
+
+# 예: 아이템 1개당 5초
+ITEM_TIME_FACTOR = 5
 
 class OrderService:
     def __init__(self, robots, occupied_info, db):
@@ -169,10 +174,16 @@ class OrderService:
                 finalize_robot()
                 return
 
-            # 로봇이 해당 스테이션에 도착 -> 로봇 점유 설정 (예: remain_time=10)
-            self.update_robot_occupied_info(station, True, 10)
-
+            # 매대에서 담아야 할 아이템의 총 개수를 기반으로 점유 시간 계산
             station_products = order.station_items_map.get(station, {})
+            total_item_count = sum(station_products.values())
+            # 예) item_count 개당 5초
+            remain_time = total_item_count * ITEM_TIME_FACTOR
+
+            # 로봇이 해당 스테이션에 도착 -> 로봇 점유 설정
+            self.update_robot_occupied_info(station, True, remain_time)
+
+            # 매니퓰레이터
             manip_client = self.manipulator_clients.get(station)
             if not manip_client:
                 # 해당 스테이션에 로봇팔이 없다면 조작 불가
@@ -242,7 +253,6 @@ class OrderService:
         """
         if station not in self.occupied_info:
             return
-        _, r_time = self.occupied_info[station]["robot"]
         self.occupied_info[station]["robot"] = (occupied, remain_time)
 
     def reduce_occupied_time(self):
