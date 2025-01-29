@@ -127,7 +127,8 @@ class OrderService:
 
                 # (2) 새 경로가 기존 경로와 완전히 동일하다면 무한 루프 위험
                 if new_path == leftover_stations:
-                    # 간단한 방지책: 잠시 대기 후 다시 시도 (또는 다른 정책)
+                    # 잠시 대기 후 다시 시도 (또는 다른 정책 추가 가능)
+                    print("@@@@ time sleeping 2second")
                     time.sleep(2)
                     # 사람이 점유 시간을 줄이도록
                     self.reduce_occupied_time()
@@ -229,6 +230,7 @@ class OrderService:
         주기적으로 remain_time 을 1씩 감소.
         0 이하가 되면 occupied=False 로 설정.
         """
+
         for st, occupant_dict in self.occupied_info.items():
             # 로봇 점유
             r_occ, r_time = occupant_dict["robot"]
@@ -238,6 +240,7 @@ class OrderService:
                     occupant_dict["robot"] = (False, 0)
                 else:
                     occupant_dict["robot"] = (True, new_t)
+                    print(self.occupied_info)
 
             # 사람 점유
             p_occ, p_time = occupant_dict["person"]
