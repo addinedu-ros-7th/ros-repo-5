@@ -25,6 +25,8 @@ def background_occupy(order_service_instance: OrderService):
     """주기적으로 station의 remain_time(occupied_time)을 감소시키는 쓰레드."""
     print(">>> background_occupy thread started!")
     while True:
+        # OrderService 내 reduce_occupied_time()에서
+        # 'robot', 'person' 각각의 remain_time을 감소
         order_service_instance.reduce_occupied_time()
         time.sleep(1)
 
@@ -52,7 +54,9 @@ def create_app() -> FastAPI:
     print(">>> create_app() called!")
     app = FastAPI()
 
-    # DB 초기화
+    # -------------------------
+    # 1) DB 초기화
+    # -------------------------
     try:
         db = DBManager(host="localhost", user="root", password="0000", db="deli")
         app.state.db = db
@@ -61,7 +65,9 @@ def create_app() -> FastAPI:
         print(f"!!! DBManager creation failed: {e}")
         raise
 
-    # 로봇 세팅 (주행 3대 + 로봇팔 3대)
+    # -------------------------
+    # 2) 로봇 세팅 (주행 3대 + 로봇팔 3대)
+    # -------------------------
     robots = {
         "1": Robot("1", "주행로봇1", 1.0, robot_type="주행"),
         "2": Robot("2", "주행로봇2", 1.0, robot_type="주행"),
@@ -72,20 +78,34 @@ def create_app() -> FastAPI:
     }
     print(f">>> Created robots: {list(robots.keys())}")
 
-    # 스테이션 점유 정보
-    occupied_info = {"냉동": (False, 0), "신선": (False, 0), "일반": (False, 0)}
+    # -------------------------
+    # 3) 매대 점유 정보 구조
+    #    로봇/사람 각각 기록
+    # -------------------------
+    occupied_info = {
+        "냉동":  {"robot": (False, 0), "person": (False, 0)},
+        "신선":  {"robot": (False, 0), "person": (False, 0)},
+        "일반":  {"robot": (False, 0), "person": (False, 0)}
+    }
 
-    # OrderService
+    # -------------------------
+    # 4) OrderService 생성
+    # -------------------------
     service = OrderService(robots, occupied_info, db)
     app.state.order_service = service
     print(">>> OrderService created and set to app.state.order_service")
 
-    # FastAPI 라우터 등록 (예시)
+    # -------------------------
+    # 5) FastAPI 라우터 등록
+    # -------------------------
     from task_manager_py.adapters.fastapi.fastapi_server import router
     app.include_router(router)
     print(">>> Router included!")
 
-    # 백그라운드 쓰레드에서 station remain_time 감소
+    # -------------------------
+    # 6) 백그라운드 쓰레드
+    #    station remain_time 감소
+    # -------------------------
     threading.Thread(target=background_occupy, args=(service,), daemon=True).start()
 
     return app
@@ -99,7 +119,7 @@ def main():
     rclpy.init()
     print(">>> rclpy.init() done.")
 
-    # 2) ROS2 액션 서버 생성 (주행로봇 3대 / 로봇팔 3대)
+    # 2) ROS2 액션 서버 생성
     print(">>> Creating RobotNavigationServer for 1,2,3...")
     nav_server_r1 = RobotNavigationServer("1")
     nav_server_r2 = RobotNavigationServer("2")
@@ -114,12 +134,12 @@ def main():
     global app
     app = create_app()
 
-    # 디버그
+    # 디버그 정보
     order_service = app.state.order_service
     print(f">>> order_service.robots keys: {list(order_service.robots.keys())}")
     print(f">>> order_service.occupied_info: {order_service.occupied_info}")
 
-    # 4) OrderService 안에 있는 클라이언트 노드들
+    # 4) OrderService 안에 있는 클라이언트 노드들 (MobileRobotActionClient, StationManipulatorClient)
     client_nodes = list(order_service.robot_clients.values())
     manipulator_nodes = list(order_service.manipulator_clients.values())
 

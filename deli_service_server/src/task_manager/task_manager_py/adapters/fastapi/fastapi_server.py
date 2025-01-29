@@ -1,7 +1,5 @@
-# task_manager_py/adapters/fastapi/fastapi_server.py
-
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Dict, Optional, List
 
 from task_manager_py.domain.models.order import Order
@@ -31,11 +29,12 @@ class CreateOrderRequest(BaseModel):
     cart: Dict[str, int]
 
 # -------------------------
-# 3) 로봇 (Robot) 관련 모델
+# 3) 매대 점유 시간 관련 모델
 # -------------------------
-class RobotWaitingTimeRequest(BaseModel):
-    robotId: str
-    waitingTime: int
+class ShelfWaitingTimeRequest(BaseModel):
+    normal: int = Field(alias="일반 매대")
+    cold: int = Field(alias="냉동 매대")
+    fresh: int = Field(alias="신선 매대")
 
 # -------------------------
 # 4) 로그인 관련 모델
@@ -44,6 +43,14 @@ class LoginRequest(BaseModel):
     userId: str
     password: str
 
+
+# -------------------------
+# 5) 사람 매대 점유 여부 모델
+# -------------------------
+class PersonOnShelfRequest(BaseModel):
+    일반매대: bool = Field(alias="일반 매대")
+    냉동매대: bool = Field(alias="냉동 매대")
+    신선매대: bool = Field(alias="신선 매대")
 
 # ------------------------------------------------------------------------------
 # [Login API]
@@ -272,18 +279,28 @@ def get_orders(userId: Optional[str] = None, request: Request = None) -> dict:
         })
     return {"orders": results}
 
-
 @router.delete("/api/orders/{orderId}")
 def cancel_order(orderId: str, request: Request) -> dict:
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
 
+    # (1) DB에서 해당 주문 존재 여부 확인
     check_sql = "SELECT order_id FROM orders WHERE order_id=%s"
     rows = db.execute_query(check_sql, (orderId,))
     if len(rows) == 0:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # (2) OrderService에서 큐에 있는 주문 제거
+    #     order_queue 에 담긴 Order 객체 중, order_id가 일치하는 것을 제거
+    order_service = request.app.state.order_service
+    if order_service:
+        for i, queued_order in enumerate(order_service.order_queue):
+            if queued_order.order_id == orderId:
+                del order_service.order_queue[i]
+                break
+
+    # (3) DB에서 order_items, orders 테이블에서 삭제
     del_items_sql = "DELETE FROM order_items WHERE order_id=%s"
     db.execute_query(del_items_sql, (orderId,))
 
@@ -313,9 +330,7 @@ def get_robots_status(request: Request) -> dict:
 
     results = []
     for r_id, robot_obj in order_service.robots.items():
-        # 로봇 바쁜 상태인지
         status_str = "주문처리중" if robot_obj.busy else "대기중"
-
         data = {
             "robotId": robot_obj.robot_id,
             "name": robot_obj.name,
@@ -337,17 +352,10 @@ def get_robots_status(request: Request) -> dict:
 
 @router.get("/api/robots/locations")
 def get_robot_locations(request: Request) -> dict:
-    """
-    도메인 모델에 Robot.location = (x,y)가 있다고 가정.
-    각 로봇의 현재 위치 반환.
-    """
-    print(">>> /api/robots/locations called!")
     order_service = request.app.state.order_service
     if not order_service:
-        print("!!! order_service is None.")
         raise HTTPException(status_code=500, detail="OrderService not set")
 
-    print(f">>> order_service.robots: {order_service.robots}")
     locations = []
     for r_id, robot_obj in order_service.robots.items():
         x, y = robot_obj.location
@@ -356,8 +364,6 @@ def get_robot_locations(request: Request) -> dict:
             "x": x,
             "y": y
         })
-
-    print(f">>> returning locations: {locations}")
     return {"locations": locations}
 
 
@@ -371,7 +377,6 @@ def get_robots_logs(request: Request) -> dict:
     if not db:
         raise HTTPException(status_code=500, detail="DB Manager not set")
 
-    # UNION ALL 쿼리
     sql = """
     SELECT robot_id, status, location, time
     FROM deli_bot_logs
@@ -384,12 +389,7 @@ def get_robots_logs(request: Request) -> dict:
 
     results = []
     for row in rows:
-        """
-        deli_bot_logs  -> (robot_id, status, location, time)
-        deli_arm_logs  -> (robot_id, status, NULL, time)
-        """
         robot_id, status, location, timestamp = row
-        # 시간을 ISO 포맷으로 (예: 2023-02-09T18:44:00Z)
         iso_str = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         results.append({
@@ -403,17 +403,96 @@ def get_robots_logs(request: Request) -> dict:
 
 
 @router.post("/api/robots/waiting-time")
-def update_robot_waiting_time(req: RobotWaitingTimeRequest, request: Request) -> dict:
-    db = request.app.state.db
-    if db is None:
-        raise HTTPException(status_code=500, detail="DB Manager not set")
+def update_shelf_waiting_time(req: ShelfWaitingTimeRequest, request: Request) -> dict:
+    """
+    매대 대기 필요시간 (사람) 입력 API
+    {
+      "일반 매대": 13,
+      "냉동 매대": 0,
+      "신선 매대": 0
+    }
+    -> occupied_info[station]["person"] 의 remain_time을 += ...
+    """
+    order_service = request.app.state.order_service
+    if not order_service:
+        raise HTTPException(status_code=500, detail="OrderService not set")
 
-    check_sql = "SELECT robot_id FROM robots WHERE robot_id=%s"
-    rows = db.execute_query(check_sql, (req.robotId,))
-    if len(rows) == 0:
-        raise HTTPException(status_code=404, detail="Robot not found")
+    occupied_info = order_service.occupied_info
 
-    update_sql = "UPDATE robots SET waiting_time=%s WHERE robot_id=%s"
-    db.execute_query(update_sql, (req.waitingTime, req.robotId))
+    # (1) 일반 매대
+    person_occ, person_time = occupied_info["일반"]["person"]
+    new_time = person_time + req.normal
+    if new_time > 0:
+        person_occ = True
+    occupied_info["일반"]["person"] = (person_occ, new_time)
 
-    return {"status": "success", "message": "Waiting time updated successfully"}
+    # (2) 냉동 매대
+    person_occ, person_time = occupied_info["냉동"]["person"]
+    new_time = person_time + req.cold
+    if new_time > 0:
+        person_occ = True
+    occupied_info["냉동"]["person"] = (person_occ, new_time)
+
+    # (3) 신선 매대
+    person_occ, person_time = occupied_info["신선"]["person"]
+    new_time = person_time + req.fresh
+    if new_time > 0:
+        person_occ = True
+    occupied_info["신선"]["person"] = (person_occ, new_time)
+
+    return {
+        "status": "success",
+        "message": "Waiting time updated successfully"
+    }
+
+
+# ------------------------------------------------------------------------------
+# [shelf occupied by person]
+# ------------------------------------------------------------------------------
+@router.post("/api/persononshelf")
+def update_person_on_shelf(req: PersonOnShelfRequest, request: Request) -> dict:
+    """
+    yolo 등에서 매대 주변에 사람 존재 여부를 실시간으로 알려줄 때 사용.
+    예)
+    {
+      "일반 매대": true,
+      "냉동 매대": false,
+      "신선 매대": false
+    }
+    """
+    order_service = request.app.state.order_service
+    if not order_service:
+        raise HTTPException(status_code=500, detail="OrderService not set")
+
+    occupied_info = order_service.occupied_info
+
+    # 일반 매대
+    person_occ, person_time = occupied_info["일반"]["person"]
+    if person_time > 0:
+        # 남은시간이 남아있으면 True 유지
+        new_occ = True
+    else:
+        # 시간 0이면 YOLO 결과를 그대로 반영
+        new_occ = req.일반매대
+    occupied_info["일반"]["person"] = (new_occ, person_time)
+
+    # 냉동 매대
+    person_occ, person_time = occupied_info["냉동"]["person"]
+    if person_time > 0:
+        new_occ = True
+    else:
+        new_occ = req.냉동매대
+    occupied_info["냉동"]["person"] = (new_occ, person_time)
+
+    # 신선 매대
+    person_occ, person_time = occupied_info["신선"]["person"]
+    if person_time > 0:
+        new_occ = True
+    else:
+        new_occ = req.신선매대
+    occupied_info["신선"]["person"] = (new_occ, person_time)
+
+    return {
+        "status": "success",
+        "message": "person on shelf updated successfully"
+    }
