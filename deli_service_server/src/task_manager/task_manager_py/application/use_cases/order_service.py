@@ -1,43 +1,23 @@
 # task_manager_py/application/use_cases/order_service.py
 
+import time
 import threading
 from task_manager_py.domain.services.route_planner import ga_optimize_order
 from task_manager_py.adapters.ros.mobile_robot_action_client import MobileRobotActionClient
 from task_manager_py.adapters.ros.station_manipulator_client import StationManipulatorClient
 from task_manager_py.domain.models.order import Order
 
-# 필요하다면 아래 상수 정의를 제거하거나, 다른 용도로 사용할 수도 있음
-# ROBOT_OCCUPIED_PENALTY = 20
-
-# 예: 아이템 1개당 5초
-ITEM_TIME_FACTOR = 5
+# 아이템 1개당 20초
+ITEM_TIME_FACTOR = 20
 
 class OrderService:
     def __init__(self, robots, occupied_info, db):
-        """
-        :param robots: { "1": Robot, "2": Robot, ... }
-        :param occupied_info: {
-            "냉동": {
-                "robot": (False, 0),
-                "person": (False, 0)
-            },
-            "신선": {
-                "robot": (False, 0),
-                "person": (False, 0)
-            },
-            "일반": {
-                "robot": (False, 0),
-                "person": (False, 0)
-            }
-        }
-        :param db: DBManager
-        """
         self.robots = robots
         self.occupied_info = occupied_info
         self.order_queue = []
         self.db = db
 
-        # 로봇별 Action Client 초기화
+        # 로봇별 액션 클라이언트 초기화
         self.robot_clients = {}
         for r_id, robot_obj in robots.items():
             if robot_obj.robot_type == "주행":
@@ -56,9 +36,6 @@ class OrderService:
             self.manipulator_clients[station] = m_node
 
     def assign_order(self, order: Order):
-        """
-        새 주문이 들어왔을 때 가능한 주행 로봇을 할당하고, 주문을 비동기로 수행하는 스레드 시작.
-        """
         # 1) 스테이션별 아이템 분류
         station_items_map = {}
         for product_id, qty in order.cart.items():
@@ -74,52 +51,45 @@ class OrderService:
         order.station_items_map = station_items_map
         order.station_list = list(station_items_map.keys())
 
-        # 2) 사용 가능한 주행 로봇 (busy가 아닌) 중 배터리가 가장 높은 로봇 선택
-        available = [r for r in self.robots.values() if (r.robot_type == "주행" and not r.busy)]
+        # 2) 사용 가능한 주행 로봇 (busy=False) 중 배터리가 가장 높은 로봇 선택
+        available = [r for r in self.robots.values()
+                     if (r.robot_type == "주행" and not r.busy)]
         if not available:
-            # 로봇 할당 불가 -> 큐에 대기
             self.order_queue.append(order)
             return None
 
         available.sort(key=lambda r: r.battery_level, reverse=True)
         robot = available[0]
 
-        # 3) GA 최적 경로 계산
+        # 3) GA 최적 경로
         path, cost = ga_optimize_order(
             order.station_list,
             self.occupied_info,
             robot.battery_level
         )
-
         print(f"[OrderService] Robot {robot.robot_id} assigned to order {order.order_id}, path={path}, cost={cost}")
 
-        # 로봇 상태 업데이트
+        # 4) 로봇 상태 업데이트
         robot.busy = True
-        robot.path_queue = path  # 처음 방문할 매대 목록
+        robot.path_queue = path
         robot.remaining_items = dict(order.cart)
         robot.carrying_items = {}
 
-        # 4) 주문 처리 스레드 실행
-        t = threading.Thread(target=self.execute_order_in_thread, args=(robot, order))
+        # 5) 별도 스레드로 주문 수행
+        t = threading.Thread(
+            target=self.execute_order_in_thread,
+            args=(robot, order)
+        )
         t.daemon = True
         t.start()
 
         return robot.robot_id
 
     def execute_order_in_thread(self, robot, order: Order):
-        """
-        실제 주문 수행 로직 (별도 스레드).
-        - 매대 방문 전, 점유 상태를 확인하여 점유 중이면 GA로 재경로 편성
-        - 매대 조작(Manipulation) 수행
-        - 모든 매대 방문 후 목적지 -> 출발지 이동
-        - 주문 상태 완료 처리
-        """
         client = self.robot_clients[robot.robot_id]
 
         def finalize_robot():
-            """
-            로봇 상태 리셋 + 대기중인 다음 주문 할당 시도
-            """
+            # 로봇 해제 + 남은 주문 할당
             robot.busy = False
             robot.path_queue = []
             robot.remaining_items = {}
@@ -130,43 +100,56 @@ class OrderService:
                 self.assign_order(next_order)
 
         def process_stations():
-            """
-            남아있는 매대(robot.path_queue)를 순차 방문.
-            다음 매대가 다른 로봇/사람으로 점유 중이면 GA 재실행 후 경로 재편성.
-            """
             if not robot.path_queue:
-                # 더 방문할 매대가 없으면 목적지 -> 출발지 후 종료
+                # 모두 방문하면 목적지 -> 출발지
                 client.navigate_to_station("목적지", done_cb=_on_destination_done)
                 return
 
-            next_station = robot.path_queue[0]
+            st = robot.path_queue[0]
 
-            # 다음 매대가 점유 중인지 확인
-            r_occ, r_time = self.occupied_info[next_station]["robot"]
-            p_occ, p_time = self.occupied_info[next_station]["person"]
+            # (1) 현재 매대가 이미 점유 중인지 확인
+            r_occ, r_time = self.occupied_info[st]["robot"]
+            p_occ, p_time = self.occupied_info[st]["person"]
 
             total_occ = (r_occ or p_occ)
             total_remain = max(r_time, p_time)
 
             if total_occ or total_remain > 0:
-                # 매대가 점유 중이라면 남은 스테이션들에 대해 GA 재실행
-                print(f"[OrderService] Station {next_station} is occupied({total_remain} sec), Re-planning route...")
-                leftover_stations = robot.path_queue[:]  # 아직 방문 못한 매대들
-
+                # 점유 중 -> GA 재계획
+                leftover_stations = robot.path_queue[:]
                 new_path, cost = ga_optimize_order(
                     leftover_stations,
                     self.occupied_info,
                     robot.battery_level
                 )
-                robot.path_queue = new_path
-                print(f" [Re-plan] new path={new_path}, cost={cost}")
+                print(f"[OrderService] Station {st} is occupied({total_remain} sec). Re-planning route...")
+                print(f"  old_path={leftover_stations}, new_path={new_path}, cost={cost}")
 
-                # 새 경로로 다시 방문 시도
-                process_stations()
-                return
+                # (2) 새 경로가 기존 경로와 완전히 동일하다면 무한 루프 위험
+                if new_path == leftover_stations:
+                    # 간단한 방지책: 잠시 대기 후 다시 시도 (또는 다른 정책)
+                    time.sleep(2)
+                    # 사람이 점유 시간을 줄이도록
+                    self.reduce_occupied_time()
+                    # 다시 process_stations() 시도
+                    process_stations()
+                    return
+                else:
+                    # 경로 갱신 후 재귀 호출
+                    robot.path_queue = new_path
+                    process_stations()
+                    return
 
-            # 점유가 아니면 이동 시작
-            st = next_station
+            # (3) 점유가 아니면, 이동 "시작" 시점에 매대를 점유 상태로 만든다
+            station_products = order.station_items_map.get(st, {})
+            total_item_count = sum(station_products.values())
+            remain_time = total_item_count * ITEM_TIME_FACTOR
+
+            # 로봇 점유 설정(이동 시작 시점)
+            self.update_robot_occupied_info(st, True, remain_time)
+            print(f"[OrderService] Robot {robot.robot_id} => moving to {st}, occupant_time={remain_time}s")
+
+            # 실제 이동
             client.navigate_to_station(st, done_cb=lambda ok: _on_navigate_done(ok, st))
 
         def _on_navigate_done(success: bool, station: str):
@@ -174,23 +157,15 @@ class OrderService:
                 finalize_robot()
                 return
 
-            # 매대에서 담아야 할 아이템의 총 개수를 기반으로 점유 시간 계산
-            station_products = order.station_items_map.get(station, {})
-            total_item_count = sum(station_products.values())
-            # 예) item_count 개당 5초
-            remain_time = total_item_count * ITEM_TIME_FACTOR
-
-            # 로봇이 해당 스테이션에 도착 -> 로봇 점유 설정
-            self.update_robot_occupied_info(station, True, remain_time)
-
-            # 매니퓰레이터
+            # 로봇이 station에 도착한 상태
             manip_client = self.manipulator_clients.get(station)
             if not manip_client:
-                # 해당 스테이션에 로봇팔이 없다면 조작 불가
+                # 로봇팔이 없는 매대라면 -> 곧바로 점유 해제 + 종료
                 self.update_robot_occupied_info(station, False, 0)
                 finalize_robot()
                 return
 
+            station_products = order.station_items_map.get(station, {})
             manip_client.manipulate_station(
                 station,
                 station_products,
@@ -198,41 +173,37 @@ class OrderService:
             )
 
         def _on_manip_done(success: bool, station: str):
-            # 로봇 점유 해제
+            # 매대에서 아이템 담기가 끝남 -> 점유 해제
             self.update_robot_occupied_info(station, False, 0)
 
             if not success:
                 finalize_robot()
                 return
 
-            # 로봇 상태 갱신(담은 아이템 수량 등)
+            # 로봇 상태 갱신
             for prod_id, qty in order.station_items_map[station].items():
                 if prod_id in robot.remaining_items:
                     robot.remaining_items[prod_id] -= qty
                     if robot.remaining_items[prod_id] <= 0:
                         del robot.remaining_items[prod_id]
-                robot.carrying_items[prod_id] = robot.carrying_items.get(prod_id, 0) + qty
+                robot.carrying_items[prod_id] = \
+                    robot.carrying_items.get(prod_id, 0) + qty
 
-            # 해당 스테이션 방문 완료 -> path_queue에서 제거
+            # 방문 완료 -> path_queue에서 제거
             if robot.path_queue and robot.path_queue[0] == station:
                 robot.path_queue.pop(0)
 
-            # 다음 매대 방문
+            # 다음 스테이션 진행
             process_stations()
 
         def _on_destination_done(success: bool):
-            """
-            목적지 도착 후 -> 출발지로 이동
-            """
             if success:
+                # 목적지 방문 후 -> 출발지로 이동
                 client.navigate_to_station("출발지", done_cb=_on_return_home_done)
             else:
                 finalize_robot()
 
         def _on_return_home_done(success: bool):
-            """
-            출발지로 복귀 완료 시 주문 완료 처리
-            """
             if success:
                 try:
                     sql = "UPDATE orders SET order_status=%s WHERE order_id=%s"
@@ -240,16 +211,14 @@ class OrderService:
                     print(f"Order {order.order_id} completed.")
                 except Exception as e:
                     print(f"[ERROR] Update order fail: {e}")
-
             finalize_robot()
 
-        # 스테이션 방문 로직 시작
+        # 프로세스 시작
         process_stations()
 
     def update_robot_occupied_info(self, station, occupied, remain_time):
         """
-        로봇에 의한 점유만 업데이트 (station: str, occupied: bool, remain_time: int)
-        occupied_info[station]["robot"] = (occupied, remain_time)
+        이동 시작 시점(혹은 원하는 시점)에 해당 station을 로봇으로 점유/해제
         """
         if station not in self.occupied_info:
             return
@@ -257,10 +226,8 @@ class OrderService:
 
     def reduce_occupied_time(self):
         """
-        주기적으로 remain_time을 감소시키는 함수.
-        - 로봇(robot)
-        - 사람(person)
-        두 항목 모두 1씩 감소. 0 이하가 되면 occupied=False
+        주기적으로 remain_time 을 1씩 감소.
+        0 이하가 되면 occupied=False 로 설정.
         """
         for st, occupant_dict in self.occupied_info.items():
             # 로봇 점유
