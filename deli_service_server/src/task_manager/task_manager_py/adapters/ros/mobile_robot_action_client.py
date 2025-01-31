@@ -88,12 +88,21 @@ class MobileRobotActionClient(Node):
         이동 중 피드백 콜백
         """
         feedback = feedback_msg.feedback
+
+        # geometry_msgs/PoseStamped에서 pose 정보를 추출
+        current_pose_stamped = feedback.current_pose
+        current_position = current_pose_stamped.pose.position
+
+        # 로봇의 위치를 실제로 갱신
+        self.robot_obj.location = (current_position.x, current_position.y)
+
+        # 로그 출력 (예: header.frame_id, 거리 등)
         self.get_logger().info(
-            f"[{self.robot_id}_client] Navigation Feedback: Pose={feedback.current_pose.header.frame_id}, dist={feedback.distance_remaining}"
+            f"[{self.robot_id}_client] Navigation Feedback: "
+            f"frame_id={current_pose_stamped.header.frame_id}, "
+            f"position=({current_position.x:.2f}, {current_position.y:.2f}), "
+            f"dist={feedback.distance_remaining}"
         )
-        # 위치 갱신 (데모용)
-        dist = feedback.distance_remaining
-        self.robot_obj.location = (dist, dist)
 
     def _nav_goal_response_callback(self, future, station: str, done_cb: Optional[Callable[[bool], None]]):
         goal_handle = future.result()

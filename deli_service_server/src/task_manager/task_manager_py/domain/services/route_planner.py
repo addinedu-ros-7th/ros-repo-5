@@ -16,7 +16,7 @@ order_weight = {
     "일반": [1,2,3],
 }
 
-FIRST_VISIT_OCCUPIED_PENALTY = 10
+FIRST_VISIT_OCCUPIED_PENALTY = 40
 BATTERY_PENALTY_FACTOR = 5.0
 
 def calculate_route_cost(stations_to_visit, occupied_info, battery_level):
