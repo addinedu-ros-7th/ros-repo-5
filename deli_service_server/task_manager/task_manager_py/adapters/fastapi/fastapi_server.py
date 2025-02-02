@@ -248,21 +248,31 @@ def create_order(req: CreateOrderRequest, request: Request) -> dict:
         }
 
 
+
 @router.get("/api/orders")
 def get_orders(userId: Optional[str] = None, request: Request = None) -> dict:
     db = request.app.state.db
     if db is None:
         raise HTTPException(status_code=500, detail="DB Manager not set")
 
+    # created_at, over_at 컬럼을 추가해서 조회
     if userId:
-        sql_orders = "SELECT order_id, user_id, order_status, price FROM orders WHERE user_id=%s"
+        sql_orders = """
+            SELECT order_id, user_id, order_status, price, created_at, over_at
+            FROM orders
+            WHERE user_id=%s
+        """
         rows_orders = db.execute_query(sql_orders, (userId,))
     else:
-        sql_orders = "SELECT order_id, user_id, order_status, price FROM orders"
+        sql_orders = """
+            SELECT order_id, user_id, order_status, price, created_at, over_at
+            FROM orders
+        """
         rows_orders = db.execute_query(sql_orders)
 
     results = []
-    for (oid, uid, status, price) in rows_orders:
+    # 쿼리 결과에서 created_at, over_at을 함께 받도록 언패킹
+    for (oid, uid, status, price, created_at, over_at) in rows_orders:
         sql_items = "SELECT product_id, quantity FROM order_items WHERE order_id=%s"
         rows_items = db.execute_query(sql_items, (oid,))
 
@@ -275,7 +285,9 @@ def get_orders(userId: Optional[str] = None, request: Request = None) -> dict:
             "status": status,
             "userId": uid,
             "items": items_dict,
-            "price": float(price if price else 0.0)
+            "price": float(price if price else 0.0),
+            "createdAt": created_at,  # created_at 필드 추가
+            "overAt": over_at         # over_at 필드 추가
         })
     return {"orders": results}
 
