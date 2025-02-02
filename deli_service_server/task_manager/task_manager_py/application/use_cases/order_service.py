@@ -6,6 +6,7 @@ from task_manager_py.domain.services.route_planner import ga_optimize_order
 from task_manager_py.adapters.ros.mobile_robot_action_client import MobileRobotActionClient
 from task_manager_py.adapters.ros.station_manipulator_client import StationManipulatorClient
 from task_manager_py.domain.models.order import Order
+from datetime import datetime
 
 # 아이템 1개당 20초
 ITEM_TIME_FACTOR = 20
@@ -82,6 +83,8 @@ class OrderService:
         )
         t.daemon = True
         t.start()
+
+
 
         return robot.robot_id
 
@@ -207,8 +210,13 @@ class OrderService:
         def _on_return_home_done(success: bool):
             if success:
                 try:
-                    sql = "UPDATE orders SET order_status=%s WHERE order_id=%s"
-                    self.db.execute_query(sql, ("completed", order.order_id))
+                    sql = """
+                    UPDATE orders
+                    SET order_status=%s,
+                        over_at=%s
+                    WHERE order_id=%s
+                    """
+                    self.db.execute_query(sql, ("completed", datetime.now(), order.order_id))
                     print(f"Order {order.order_id} completed.")
                 except Exception as e:
                     print(f"[ERROR] Update order fail: {e}")

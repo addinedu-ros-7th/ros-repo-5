@@ -3,6 +3,7 @@ import requests
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QDialog
 from PyQt5.QtWidgets import QLabel, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt5 import uic
+from PyQt5.QtGui import QPixmap
 
 # login.ui 에서 자동 생성되는 UI 클래스
 LoginUIClass = uic.loadUiType("login.ui")[0]
@@ -201,6 +202,18 @@ class MainPage(QMainWindow, MainUIClass):
             self.user_id_.setText(f"로그인에 성공했습니다.\nID: {self.user_id}")
         else:
             self.user_id_.setText("로그인 사용자 정보가 없습니다.")
+
+        #이미지 설정
+        pixmap = QPixmap("/home/truman/github/deli_ws/deli_ui/User_UI/img/1.png")
+        print("Pixmap1 is null?", pixmap.isNull())
+        self.image_1.setPixmap(pixmap)
+        self.image_1.setScaledContents(True)
+
+        pixmap = QPixmap("/home/truman/github/deli_ws/deli_ui/User_UI/img/2.png")
+        print("Pixmap2 is null?", pixmap.isNull())
+        self.image_2.setPixmap(pixmap)
+        self.image_2.setScaledContents(True)
+
 
         # SpinBox 초기 값 설정
         self.count1.setValue(0)
