@@ -1,0 +1,2 @@
+string station
+geometry_msgs/PoseStamped waypoint

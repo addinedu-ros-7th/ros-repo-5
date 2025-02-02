@@ -1,0 +1,6 @@
+# Request
+task_manager_msgs/PickUp[] pickups
+
+---
+# Response
+StationWaypoint[] station_waypoints
