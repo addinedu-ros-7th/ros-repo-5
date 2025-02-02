@@ -2,8 +2,6 @@ import rclpy
 from rclpy.node import Node
 
 from traffic_manager_msgs.srv import GetStationWaypoints
-from traffic_manager_msgs.msg import StationWaypoint
-from task_manager_msgs.msg import PickUp, Payload
 
 from traffic_manager.utils import format_pickup_tasks_log, format_station_waypoints_log
 
@@ -26,8 +24,8 @@ StationWaypoint[] station_waypoints
 
 < Test Command >
 $ ros2 service call /delibot_1/get_task_station traffic_manager_msgs/srv/GetStationWaypoints "pickups:
-- {station: 'apple_shelf', handler: 'robot_1', payload: [{sku: 'apple', quantity: 5}]}
-- {station: 'peach_shelf', handler: 'robot_1', payload: [{sku: 'peach', quantity: 3}]}"
+- {station: 'apple_shelf', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}
+- {station: 'peach_shelf', handler: 'delibot_1', payload: [{sku: 'peach', quantity: 3}]}"
 
 ================================================================ """
 
@@ -37,10 +35,10 @@ class TrafficClient(Node):
         super().__init__(f"{self.robot_id}_traffic_client")
 
         # Initialize service server
-        # self.task_service = self.create_service(
-        #     GetStationWaypoints, f"/{self.robot_id}/get_task_station", self.get_task_station_callback
-        # )
-        # self.get_logger().info(f"/{self.robot_id}/get_task_station Service is ready!")
+        self.task_service = self.create_service(
+            GetStationWaypoints, f"/{self.robot_id}/get_task_station", self.handle_task_station
+        )
+        self.get_logger().info(f"/{self.robot_id}/get_task_station Service is ready!")
 
         # Initialize service client
         self.traffic_client = self.create_client(
@@ -51,29 +49,20 @@ class TrafficClient(Node):
             self.get_logger().info(f'/{self.robot_id}/get_station_waypoints Waiting for service...')
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
 
-        self.handle_task_station(robot_id)
 
-
-    def handle_task_station(self, robot_id): #request, response):
-        # TODO: Implement task server in TaskServer
-        test_task = [
-            PickUp(station='apple_shelf', handler=robot_id, payload=[Payload(sku='apple', quantity=5)]),
-            PickUp(station='peach_shelf', handler=robot_id, payload=[Payload(sku='peach', quantity=3)]),
-        ]
-        log_message = format_pickup_tasks_log(self.robot_id, test_task)
+    def handle_task_station(self, request, response):
+        task = request.pickups
+        log_message = format_pickup_tasks_log(self.robot_id, task)
         self.get_logger().info(f"/{self.robot_id}/get_task_station Request received: \n{log_message}")
-        waypoint = self.request_station_waypoints(test_task)
 
-    #     self.get_logger().info(f"/{self.robot_id}/get_task_station Request received: {len(request.pickups)} tasks")
+        station_waypoint, log_message = self.request_station_waypoints(task)
+        if station_waypoint:
+            response.station_waypoints = station_waypoint
+            self.get_logger().info(f"/{self.robot_id}/get_task_station Response sent: \n{log_message}")
+        else:
+            self.get_logger().error(f"/{self.robot_id}/get_task_station Failed to get station waypoints")
 
-    #     station_waypoints = self.get_station_waypoints(request.pickups)
-    #     if station_waypoints:
-    #         response.station_waypoints = station_waypoints
-    #         self.get_logger().info(f"/{self.robot_id}/get_task_station Response sent: {response.station_waypoints}")
-    #     else:
-    #         self.get_logger().error(f"/{self.robot_id}/get_task_station Response failed: Failed to get waypoints")
-
-    #     return response
+        return response
 
 
     def request_station_waypoints(self, pickups):
@@ -87,13 +76,13 @@ class TrafficClient(Node):
 
         result = future.result()
         if not result:
-            self.get_logger().error(f"/{self.robot_id}/get_task_station Failed to receive waypoints.")
+            self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Failed to receive waypoints.")
             return None
         
         log_message = format_station_waypoints_log(self.robot_id, result.station_waypoints)
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
-        return result.station_waypoints
-
+        return result.station_waypoints, log_message
+    
 
 def main(args=None):
     rclpy.init(args=args)
