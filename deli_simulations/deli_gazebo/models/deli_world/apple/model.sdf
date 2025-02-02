@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="apple">
+    <link name="apple">
+      <inertial>
+        <pose>9.7075e-07 -2.819e-11 0.015792 0 0 0</pose>
+        <mass>0.021647</mass>
+        <inertia>
+          <ixx>2.6216e-06</ixx>
+          <ixy>-5.4812e-18</ixy>
+          <ixz>-3.973e-10</ixz>
+          <iyy>2.6217e-06</iyy>
+          <iyz>9.9913e-15</iyz>
+          <izz>2.6359e-06</izz>
+        </inertia>
+      </inertial>
+      <visual name="apple_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>models://deli_world/apple/meshes/apple.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.59216 0.66667 0.68235 1</ambient>
+          <diffuse>0.59216 0.66667 0.68235 1</diffuse>
+          <specular>0 0 0 1</specular>
+        </material>
+      </visual>
+      <collision name="apple_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>models://deli_world/apple/meshes/apple.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>

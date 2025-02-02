@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="peach">
+    <link name="peach">
+      <inertial>
+        <pose>-0.00017415 4.6243e-08 0.017299 0 0 0</pose>
+        <mass>0.019139</mass>
+        <inertia>
+          <ixx>2.1117e-06</ixx>
+          <ixy>3.098e-12</ixy>
+          <ixz>2.1589e-09</ixz>
+          <iyy>2.0633e-06</iyy>
+          <iyz>-8.191e-13</iyz>
+          <izz>2.306e-06</izz>
+        </inertia>
+      </inertial>
+      <visual name="peach_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>models://deli_world/peach/meshes/peach.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.59216 0.66667 0.68235 1</ambient>
+          <diffuse>0.59216 0.66667 0.68235 1</diffuse>
+          <specular>0 0 0 1</specular>
+        </material>
+      </visual>
+      <collision name="peach_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>models://deli_world/peach/peach.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>

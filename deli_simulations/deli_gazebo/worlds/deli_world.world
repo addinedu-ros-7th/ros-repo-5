@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<sdf version="1.7">
+  <world name="default">
+    <!-- Lighting and background settings -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Sun</uri>
+    </include>
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Ground Plane</uri>
+    </include>
+    
+    <!-- Walls model -->
+    <include>
+      <uri>models://deli_world/walls</uri>
+      <pose>0 0 0 0 0 0</pose>
+    </include>
+    <!-- Product model -->
+    <!-- <include>
+      <uri>file://models/deli_world/lotion_1</uri>
+    </include>
+    <include>
+      <uri>file://models/deli_world/lotion_2</uri>
+    </include>
+    <include>
+      <uri>file://models/deli_world/peach</uri>
+    </include>
+    <include>
+      <uri>file://models/deli_world/apple</uri>
+    </include> -->
+  </world>
+</sdf>

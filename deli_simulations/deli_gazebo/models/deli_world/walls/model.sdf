@@ -1,0 +1,42 @@
+<?xml version='1.0'?>
+<sdf version='1.7'>
+  <model name="walls">
+    <pose>1.6917 1.0127 0.06587 0 0 0</pose>
+    <static>true</static>
+    <link name="walls">
+      <inertial>
+        <pose>1.6917 1.0127 0.06587 0 0 0</pose>
+        <mass>185.39</mass>
+        <inertia>
+          <ixx>65.339</ixx>
+          <ixy>36.726</ixy>
+          <ixz>-1.3721</ixz>
+          <iyy>160.95</iyy>
+          <iyz>-0.28055</iyz>
+          <izz>225.18</izz>
+        </inertia>
+      </inertial>
+      <collision name="walls_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>models://deli_world/walls/meshes/walls.dae</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="walls_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>models://deli_world/walls/meshes/walls.dae</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.79216 0.81961 0.93333 1</ambient>
+          <diffuse>0.79216 0.81961 0.93333 1</diffuse>
+          <specular>0 0 0 1</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

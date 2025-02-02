@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="lotion_1">
+    <link name="lotion_1">
+      <inertial>
+        <pose>-8.3644e-19 8.337e-19 0.02657 0 0 0</pose>
+        <mass>0.037827</mass>
+        <inertia>
+          <ixx>1.082e-05</ixx>
+          <ixy>1.5833e-22</ixy>
+          <ixz>-3.9625e-22</ixz>
+          <iyy>1.227e-05</iyy>
+          <iyz>-2.9309e-23</iyz>
+          <izz>4.5717e-06</izz>
+        </inertia>
+      </inertial>
+      <visual name="lotion_1_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>models://deli_world/lotion_1/meshes/lotion_1.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.59216 0.66667 0.68235 1</ambient>
+          <diffuse>0.59216 0.66667 0.68235 1</diffuse>
+          <specular>0 0 0 1</specular>
+        </material>
+      </visual>
+      <collision name="lotion_1_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>models://deli_world/lotion_1/meshes/lotion_1.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+    </link>
+  </model>
+</sdf>
