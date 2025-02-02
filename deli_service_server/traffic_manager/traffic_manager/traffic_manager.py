@@ -93,7 +93,7 @@ class TrafficManager(Node):
             response.station_waypoints.append(station_waypoint)
 
         log_message = format_station_waypoints_log(robot_id, response.station_waypoints)
-        self.get_logger().info(f"/{pickup.handler}/get_station_waypoints Response sent : \n{log_message}")
+        self.get_logger().info(f"/{pickup.handler}/get_station_waypoints Response sent: \n{log_message}")
 
         if not response.station_waypoints:
             self.get_logger().error(f"/{pickup.handler}/get_station_waypoints Response is empty!")

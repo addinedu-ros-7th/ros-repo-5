@@ -5,6 +5,9 @@ from traffic_manager_msgs.srv import GetStationWaypoints
 
 from traffic_manager.utils import format_pickup_tasks_log, format_station_waypoints_log
 
+import asyncio
+import threading
+
 """ ================================================================
 
 < Service Client >
@@ -49,39 +52,54 @@ class TrafficClient(Node):
             self.get_logger().info(f'/{self.robot_id}/get_station_waypoints Waiting for service...')
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
 
-
     def handle_task_station(self, request, response):
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(self.async_handle_task_station(request, response))
+        else:
+            self.get_logger().warn("No running event loop found! Creating a new one...")
+            thread = threading.Thread(target=self.run_async_task, args=(request, response))
+            thread.start()
+        return response
+    
+    def run_async_task(self, request, response):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(self.async_handle_task_station(request, response))
+
+    async def async_handle_task_station(self, request, response):
         task = request.pickups
         log_message = format_pickup_tasks_log(self.robot_id, task)
         self.get_logger().info(f"/{self.robot_id}/get_task_station Request received: \n{log_message}")
 
-        station_waypoint, log_message = self.request_station_waypoints(task)
+        station_waypoint, log_message = await self.request_station_waypoints(task)
         if station_waypoint:
             response.station_waypoints = station_waypoint
             self.get_logger().info(f"/{self.robot_id}/get_task_station Response sent: \n{log_message}")
         else:
             self.get_logger().error(f"/{self.robot_id}/get_task_station Failed to get station waypoints")
 
-        return response
 
-
-    def request_station_waypoints(self, pickups):
+    async def request_station_waypoints(self, pickups):
         # Initialize a request
         request = GetStationWaypoints.Request()
         request.pickups = pickups
         future = self.traffic_client.call_async(request)
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Request sending...")
-        
-        rclpy.spin_until_future_complete(self, future)
 
-        result = future.result()
-        if not result:
-            self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Failed to receive waypoints.")
-            return None
+        try:
+            result = await future
+            if not result:
+                self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Failed to receive waypoints.")
+                return None
+
+            log_message = format_station_waypoints_log(self.robot_id, result.station_waypoints)
+            self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
+            return result.station_waypoints, log_message
         
-        log_message = format_station_waypoints_log(self.robot_id, result.station_waypoints)
-        self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
-        return result.station_waypoints, log_message
+        except Exception as e:
+            self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Error: {str(e)}")
+            return None
     
 
 def main(args=None):

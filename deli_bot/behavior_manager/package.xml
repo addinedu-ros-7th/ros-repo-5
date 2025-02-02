@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <package format="3">
   <name>behavior_manager</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>TODO: Package description</description>
   <maintainer email="jonaon611@gmail.com">naon</maintainer>
   <license>Behavior Manager with a traffic client for managing waypoints</license>
