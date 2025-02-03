@@ -5,17 +5,20 @@ from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.subscription import Subscription
 from std_msgs.msg import Float32
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict
 from datetime import datetime
 
-from task_manager.action import NavDelivery
+# 변경된 action, msg import
+from task_manager.action import DispatchDeliveryTask
+from task_manager.msg import PickUp, Payload
+
 from task_manager_py.infrastructure.db_manager import DBManager
 from task_manager_py.domain.models.robot import Robot
 
 class MobileRobotActionClient(Node):
     """
     주행 로봇 액션 클라이언트.
-    - 로봇 서버(NavDelivery)에 이동 Goal 전송
+    - 로봇 서버(DispatchDeliveryTask)에 이동 Goal 전송
     - 배터리 레벨 Subscribe
     - 클라이언트 단에서 로그(deli_bot_logs)에 INSERT
     """
@@ -28,7 +31,7 @@ class MobileRobotActionClient(Node):
         # (1) 액션 클라이언트
         self._nav_action_client = ActionClient(
             self,
-            NavDelivery,
+            DispatchDeliveryTask,
             f"/robot_{robot_id}/navigation_task"
         )
 
@@ -43,10 +46,14 @@ class MobileRobotActionClient(Node):
     def navigate_to_station(
         self,
         station: str,
+        items: Dict[str, int] = None,
         done_cb: Optional[Callable[[bool], None]] = None
     ):
         """
-        주행 로봇을 station으로 이동시키는 비동기 요청
+        주행 로봇을 station으로 이동시키는 비동기 요청.
+        - items: station에서 처리할 SKU별 수량 (여기서는 로봇이 직접 취급하는 게 아니라,
+                 예시로 payload에 담아 서버에 전달만 하는 형식)
+        - done_cb: 이동 완료 후(성공/실패) 콜백
         """
         # 로그: 주문 수행 시작
         self._save_mobile_log(
@@ -54,8 +61,24 @@ class MobileRobotActionClient(Node):
             location=f"x:{self.robot_obj.location[0]:.2f}, y:{self.robot_obj.location[1]:.2f}"
         )
 
-        goal_msg = NavDelivery.Goal()
-        goal_msg.stations = [station]
+        # DispatchDeliveryTask.Goal() 생성
+        goal_msg = DispatchDeliveryTask.Goal()
+
+        # PickUp 배열에 1개만 넣어서 사용 (station이 1개라는 가정)
+        pickup = PickUp()
+        pickup.station = station
+        pickup.handler = "mobile_robot"  # 임의 문자열
+        pickup.payload = []
+
+        # items가 있다면 payload로 옮김
+        if items:
+            for sku, quantity in items.items():
+                p = Payload()
+                p.sku = sku
+                p.quantity = quantity
+                pickup.payload.append(p)
+
+        goal_msg.pickups = [pickup]
 
         self.get_logger().info(f"[{self.robot_id}_client] Sending navigation goal -> {station}")
 

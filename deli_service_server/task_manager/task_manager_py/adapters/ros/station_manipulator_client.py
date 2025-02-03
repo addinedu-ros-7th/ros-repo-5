@@ -6,7 +6,7 @@ from rclpy.action import ActionClient
 from typing import Callable, Optional, Dict
 from datetime import datetime
 
-from task_manager.action import ManipulationTask
+from task_manager.action import DispatchManipulationTask
 from task_manager_py.infrastructure.db_manager import DBManager
 
 class StationManipulatorClient(Node):
@@ -24,7 +24,7 @@ class StationManipulatorClient(Node):
 
         self._manip_action_client = ActionClient(
             self,
-            ManipulationTask,
+            DispatchManipulationTask,
             f"/{manipulator_id}/manipulation_task"
         )
 
@@ -39,7 +39,7 @@ class StationManipulatorClient(Node):
         """
         self._save_arm_log(status=f"주문 수행 시작({station})")
 
-        goal_msg = ManipulationTask.Goal()
+        goal_msg = DispatchManipulationTask.Goal()
         goal_msg.target_station = station
         goal_msg.item_names = list(items.keys())
         goal_msg.item_quantities = list(items.values())

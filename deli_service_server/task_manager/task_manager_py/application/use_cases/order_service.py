@@ -84,8 +84,6 @@ class OrderService:
         t.daemon = True
         t.start()
 
-
-
         return robot.robot_id
 
     def execute_order_in_thread(self, robot, order: Order):
@@ -102,10 +100,18 @@ class OrderService:
                 next_order = self.order_queue.pop(0)
                 self.assign_order(next_order)
 
+        def is_station_occupied(station):
+            """해당 스테이션이 로봇 또는 사람이 점유 중인지 여부와 남은 시간 체크"""
+            if station not in self.occupied_info:
+                return False, 0
+            r_occ, r_time = self.occupied_info[station]["robot"]
+            p_occ, p_time = self.occupied_info[station]["person"]
+            return (r_occ or p_occ), max(r_time, p_time)
+
         def process_stations():
             if not robot.path_queue:
                 # 모두 방문하면 목적지 -> 출발지
-                client.navigate_to_station("목적지", done_cb=_on_destination_done)
+                client.navigate_to_station("목적지", {}, done_cb=_on_destination_done)
                 return
 
             st = robot.path_queue[0]
@@ -128,8 +134,10 @@ class OrderService:
                 print(f"[OrderService] Station {st} is occupied({total_remain} sec). Re-planning route...")
                 print(f"  old_path={leftover_stations}, new_path={new_path}, cost={cost}")
 
-                # (2) 새 경로가 기존 경로와 완전히 동일하다면 무한 루프 위험
-                if new_path == leftover_stations:
+                # (2) '새 경로 == 기존 경로' 이거나 
+                #     '새 경로의 첫 번째 스테이션이 여전히 점유 중'이면 2초 대기 후 다시 재계산
+                if (new_path == leftover_stations) or \
+                   (len(new_path) > 0 and is_station_occupied(new_path[0])[0]):
                     # 잠시 대기 후 다시 시도 (또는 다른 정책 추가 가능)
                     print("@@@@ time sleeping 2second")
                     time.sleep(2)
@@ -153,8 +161,8 @@ class OrderService:
             self.update_robot_occupied_info(st, True, remain_time)
             print(f"[OrderService] Robot {robot.robot_id} => moving to {st}, occupant_time={remain_time}s")
 
-            # 실제 이동
-            client.navigate_to_station(st, done_cb=lambda ok: _on_navigate_done(ok, st))
+            # 실제 이동 (주행 액션 호출) - payload에 station_products 전달
+            client.navigate_to_station(st, station_products, done_cb=lambda ok: _on_navigate_done(ok, st))
 
         def _on_navigate_done(success: bool, station: str):
             if not success:
@@ -203,7 +211,7 @@ class OrderService:
         def _on_destination_done(success: bool):
             if success:
                 # 목적지 방문 후 -> 출발지로 이동
-                client.navigate_to_station("출발지", done_cb=_on_return_home_done)
+                client.navigate_to_station("출발지", {}, done_cb=_on_return_home_done)
             else:
                 finalize_robot()
 
@@ -238,7 +246,6 @@ class OrderService:
         주기적으로 remain_time 을 1씩 감소.
         0 이하가 되면 occupied=False 로 설정.
         """
-
         for st, occupant_dict in self.occupied_info.items():
             # 로봇 점유
             r_occ, r_time = occupant_dict["robot"]

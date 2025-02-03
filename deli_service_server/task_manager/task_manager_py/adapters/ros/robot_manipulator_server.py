@@ -5,7 +5,7 @@ import rclpy
 from rclpy.action import ActionServer
 from rclpy.node import Node
 
-from task_manager.action import ManipulationTask
+from task_manager.action import DispatchManipulationTask
 
 class RobotManipulatorServer(Node):
     def __init__(self, manipulator_id: str):
@@ -14,7 +14,7 @@ class RobotManipulatorServer(Node):
 
         self._action_server = ActionServer(
             self,
-            ManipulationTask,
+            DispatchManipulationTask,
             f"/{manipulator_id}/manipulation_task",
             self.execute_callback
         )
@@ -24,9 +24,12 @@ class RobotManipulatorServer(Node):
         item_names = goal_handle.request.item_names
         item_quantities = goal_handle.request.item_quantities
 
-        self.get_logger().info(f"[{self.manipulator_id}] Start picking station={station}, items={list(zip(item_names,item_quantities))}")
+        self.get_logger().info(
+            f"[{self.manipulator_id}] Start picking station={station}, "
+            f"items={list(zip(item_names,item_quantities))}"
+        )
 
-        feedback_msg = ManipulationTask.Feedback()
+        feedback_msg = DispatchManipulationTask.Feedback()
         success = True
 
         # 예시: 3초간 동작을 가정
@@ -37,7 +40,7 @@ class RobotManipulatorServer(Node):
             goal_handle.publish_feedback(feedback_msg)
 
         goal_handle.succeed()
-        result = ManipulationTask.Result()
+        result = DispatchManipulationTask.Result()
         result.success = success
         result.error_code = 0
         result.error_msg = f"Completed picking items at {station}"

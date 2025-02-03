@@ -1,5 +1,3 @@
-# task_manager_py/adapters/ros/robot_navigation_server.py
-
 import time
 import rclpy
 from rclpy.action import ActionServer
@@ -7,7 +5,9 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Float32
 
-from task_manager.action import NavDelivery
+# 변경된 action, msg import
+from task_manager.action import DispatchDeliveryTask
+from task_manager.msg import PickUp
 
 class RobotNavigationServer(Node):
     def __init__(self, robot_id: str):
@@ -17,10 +17,10 @@ class RobotNavigationServer(Node):
         super().__init__(f"robot_{robot_id}_navigation_server")
         self.robot_id = robot_id
 
-        # NavDelivery 액션 서버
+        # DispatchDeliveryTask 액션 서버
         self._action_server = ActionServer(
             self,
-            NavDelivery,
+            DispatchDeliveryTask,
             f"/robot_{robot_id}/navigation_task",
             self.execute_callback
         )
@@ -35,24 +35,37 @@ class RobotNavigationServer(Node):
         self._battery_timer = self.create_timer(1.0, self._publish_battery_level)
 
     def execute_callback(self, goal_handle):
-        stations = goal_handle.request.stations
-        self.get_logger().info(f"[Robot {self.robot_id}] NavGoal => {stations}")
+        # 변경된 Goal: PickUp[] pickups
+        pickups = goal_handle.request.pickups
+        self.get_logger().info(f"[Robot {self.robot_id}] NavGoal => pickup from={pickups[0].station}")
 
-        feedback_msg = NavDelivery.Feedback()
+        feedback_msg = DispatchDeliveryTask.Feedback()
         success = True
 
-        # 5초간 이동 시뮬레이션
+        # 단순히 pickups 안의 스테이션을 순차 이동한다고 가정
+        # (아래는 예시로, pickups 길이에 상관없이 5초 정도 움직인다고 가정)
         for i in range(5):
             time.sleep(1)
+
+            # 피드백에 현재 pose, 남은 거리 등 임의로 넣어봄
+            feedback_msg.current_pose = PoseStamped()
             feedback_msg.current_pose.header.frame_id = f"Moving... {i+1}/5"
             feedback_msg.distance_remaining = float(5 - (i+1))
             goal_handle.publish_feedback(feedback_msg)
 
+        # 일단 성공 처리
         goal_handle.succeed()
-        result = NavDelivery.Result()
+        result = DispatchDeliveryTask.Result()
         result.success = success
         result.error_code = 0
-        result.error_msg = f"Arrived at {stations}"
+
+        # 어떤 스테이션에 도착했는지 메시지 구성 (예: 첫 번째 Pickup의 station 기준)
+        if pickups:
+            st_list = [pu.station for pu in pickups]
+            result.error_msg = f"Arrived at {st_list}"
+        else:
+            result.error_msg = "No station in pickups"
+
         return result
 
     def _publish_battery_level(self):
