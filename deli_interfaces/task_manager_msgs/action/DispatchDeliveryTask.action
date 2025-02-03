@@ -1,11 +1,9 @@
-# task_manager/action/NavDelivery.action
-
 # goal
 string[] stations
 ---
 # result
 bool success
-int32 error_code
+int32 error_code    # 0=success, 1=waypoint failure, 2=navigation failure
 string error_msg
 
 ---

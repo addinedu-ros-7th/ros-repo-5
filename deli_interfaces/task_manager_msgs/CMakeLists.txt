@@ -11,9 +11,11 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
 set(action_files
-  "action/Delivery.action"
+  "action/DispatchDeliveryTask.action"
+  "action/DispatchManipulationTask.action"
 )
 set(msg_files
+  "msg/BatteryLevel.msg"
   "msg/Payload.msg"
   "msg/PickUp.msg" 
   "msg/Station.msg"

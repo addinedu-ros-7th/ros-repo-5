@@ -1,5 +1,5 @@
 # Request
-task_manager_msgs/PickUp[] pickups
+string[] stations
 
 ---
 # Response
