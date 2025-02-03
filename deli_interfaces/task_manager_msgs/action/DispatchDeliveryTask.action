@@ -1,5 +1,5 @@
 # goal
-string[] stations
+PickUp[] pickups
 ---
 # result
 bool success
