@@ -52,3 +52,36 @@ dropoff:
       y: 0.0
       z: 0.0
       w: 1.0
+
+charging_station_1:
+  pose:
+    x: 5.0
+    y: 5.0
+    z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+
+charging_station_2:
+  pose:
+    x: 5.0
+    y: 5.0
+    z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+
+charging_station_3:
+  pose:
+    x: 5.0
+    y: 5.0
+    z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0

@@ -8,10 +8,14 @@ from std_msgs.msg import Float32
 from typing import Callable, Optional, Dict
 from datetime import datetime
 
+<<<<<<< HEAD
 # 변경된 action, msg import
 from task_manager.action import DispatchDeliveryTask
 from task_manager.msg import PickUp, Payload
 
+=======
+from task_manager.action import DispatchDeliveryTask
+>>>>>>> 2b33d7230a7046178edf91d2d4a4a83e5cfa3d43
 from task_manager_py.infrastructure.db_manager import DBManager
 from task_manager_py.domain.models.robot import Robot
 
@@ -61,6 +65,7 @@ class MobileRobotActionClient(Node):
             location=f"x:{self.robot_obj.location[0]:.2f}, y:{self.robot_obj.location[1]:.2f}"
         )
 
+<<<<<<< HEAD
         # DispatchDeliveryTask.Goal() 생성
         goal_msg = DispatchDeliveryTask.Goal()
 
@@ -79,6 +84,10 @@ class MobileRobotActionClient(Node):
                 pickup.payload.append(p)
 
         goal_msg.pickups = [pickup]
+=======
+        goal_msg = DispatchDeliveryTask.Goal()
+        goal_msg.stations = [station]
+>>>>>>> 2b33d7230a7046178edf91d2d4a4a83e5cfa3d43
 
         self.get_logger().info(f"[{self.robot_id}_client] Sending navigation goal -> {station}")
 

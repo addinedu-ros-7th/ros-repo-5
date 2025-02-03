@@ -1,3 +1,5 @@
+# task_manager_py/adapters/ros/robot_navigation_server.py
+
 import time
 import rclpy
 from rclpy.action import ActionServer
@@ -37,7 +39,7 @@ class RobotNavigationServer(Node):
     def execute_callback(self, goal_handle):
         # 변경된 Goal: PickUp[] pickups
         pickups = goal_handle.request.pickups
-        self.get_logger().info(f"[Robot {self.robot_id}] NavGoal => pickup from={pickups[0].station}")
+        self.get_logger().info(f"[Robot {self.robot_id}] NavGoal => pickups count={pickups[0].station}")
 
         feedback_msg = DispatchDeliveryTask.Feedback()
         success = True
