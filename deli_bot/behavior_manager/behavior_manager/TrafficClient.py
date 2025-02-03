@@ -60,13 +60,14 @@ class TrafficClient(Node):
             self.get_logger().warn("No running event loop found! Creating a new one...")
             thread = threading.Thread(target=self.run_async_task, args=(request, response))
             thread.start()
+
         return response
     
     def run_async_task(self, request, response):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(self.async_handle_task_station(request, response))
-
+        
     async def async_handle_task_station(self, request, response):
         task = request.pickups
         log_message = format_pickup_tasks_log(self.robot_id, task)
@@ -76,8 +77,15 @@ class TrafficClient(Node):
         if station_waypoint:
             response.station_waypoints = station_waypoint
             self.get_logger().info(f"/{self.robot_id}/get_task_station Response sent: \n{log_message}")
+            if response.station_waypoints:
+                self.get_logger().info(f"/{self.robot_id}/get_task_station Response Success!")
+            else:
+                self.get_logger().error(f"/{self.robot_id}/get_task_station Response is empty!")
+            
         else:
             self.get_logger().error(f"/{self.robot_id}/get_task_station Failed to get station waypoints")
+
+        await asyncio.sleep(0.1)
 
 
     async def request_station_waypoints(self, pickups):
