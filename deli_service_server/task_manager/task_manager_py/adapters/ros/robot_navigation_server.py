@@ -7,7 +7,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Float32
 
-from task_manager.action import NavDelivery
+from task_manager.action import DispatchDeliveryTask
 
 class RobotNavigationServer(Node):
     def __init__(self, robot_id: str):
@@ -17,10 +17,10 @@ class RobotNavigationServer(Node):
         super().__init__(f"robot_{robot_id}_navigation_server")
         self.robot_id = robot_id
 
-        # NavDelivery 액션 서버
+        # DispatchDeliveryTask 액션 서버
         self._action_server = ActionServer(
             self,
-            NavDelivery,
+            DispatchDeliveryTask,
             f"/robot_{robot_id}/navigation_task",
             self.execute_callback
         )
@@ -38,7 +38,7 @@ class RobotNavigationServer(Node):
         stations = goal_handle.request.stations
         self.get_logger().info(f"[Robot {self.robot_id}] NavGoal => {stations}")
 
-        feedback_msg = NavDelivery.Feedback()
+        feedback_msg = DispatchDeliveryTask.Feedback()
         success = True
 
         # 5초간 이동 시뮬레이션
@@ -49,7 +49,7 @@ class RobotNavigationServer(Node):
             goal_handle.publish_feedback(feedback_msg)
 
         goal_handle.succeed()
-        result = NavDelivery.Result()
+        result = DispatchDeliveryTask.Result()
         result.success = success
         result.error_code = 0
         result.error_msg = f"Arrived at {stations}"

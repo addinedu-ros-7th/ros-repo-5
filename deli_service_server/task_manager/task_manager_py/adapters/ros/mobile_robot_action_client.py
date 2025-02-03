@@ -8,14 +8,14 @@ from std_msgs.msg import Float32
 from typing import Callable, Optional
 from datetime import datetime
 
-from task_manager.action import NavDelivery
+from task_manager.action import DispatchDeliveryTask
 from task_manager_py.infrastructure.db_manager import DBManager
 from task_manager_py.domain.models.robot import Robot
 
 class MobileRobotActionClient(Node):
     """
     주행 로봇 액션 클라이언트.
-    - 로봇 서버(NavDelivery)에 이동 Goal 전송
+    - 로봇 서버(DispatchDeliveryTask)에 이동 Goal 전송
     - 배터리 레벨 Subscribe
     - 클라이언트 단에서 로그(deli_bot_logs)에 INSERT
     """
@@ -28,7 +28,7 @@ class MobileRobotActionClient(Node):
         # (1) 액션 클라이언트
         self._nav_action_client = ActionClient(
             self,
-            NavDelivery,
+            DispatchDeliveryTask,
             f"/robot_{robot_id}/navigation_task"
         )
 
@@ -54,7 +54,7 @@ class MobileRobotActionClient(Node):
             location=f"x:{self.robot_obj.location[0]:.2f}, y:{self.robot_obj.location[1]:.2f}"
         )
 
-        goal_msg = NavDelivery.Goal()
+        goal_msg = DispatchDeliveryTask.Goal()
         goal_msg.stations = [station]
 
         self.get_logger().info(f"[{self.robot_id}_client] Sending navigation goal -> {station}")
