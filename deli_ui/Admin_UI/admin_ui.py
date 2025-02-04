@@ -32,6 +32,12 @@ class AdminWindow(QMainWindow, LoginUIClass):
             self.robot_image7
         ]:
             label.setScaledContents(True)
+        
+        # --- 맵 설정
+        self.map.setPixmap(QPixmap("./img/map.png"))
+
+
+
 
         # --- 타이머 설정 (로봇 관련만 1초마다) ---
         self.timer = QTimer(self)
@@ -301,7 +307,9 @@ class AdminWindow(QMainWindow, LoginUIClass):
                             f"Wait Time : {robot_info.get('waitingTime', '')}\n"
                             f"Location  : x={robot_info.get('location', {}).get('x', '')}, "
                             f"y={robot_info.get('location', {}).get('y', '')}\n"
-                        )
+                            f"Remain : {robot_info.get('remainingItems',{})}\n"
+                            f"Carrying : {robot_info.get('carryingItems',{})}\n"
+                        )   
                         self._set_robot_state_text(i+1, text)
             else:
                 error_text = f"상태 조회 에러: HTTP {response.status_code}"
@@ -341,8 +349,8 @@ class AdminWindow(QMainWindow, LoginUIClass):
         좌표 변환 (단순 스케일 예시)
         """
         scale = 50
-        px = int(x * scale)
-        py = int(y * scale)
+        px = int(x * scale) - 75 + 70
+        py = int(y * scale) - 75 + 70
         return px, py
 
     def _set_robot_state_text(self, robot_index, text):

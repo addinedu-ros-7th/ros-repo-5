@@ -7,6 +7,13 @@ from task_manager_py.adapters.ros.mobile_robot_action_client import MobileRobotA
 from task_manager_py.adapters.ros.station_manipulator_client import StationManipulatorClient
 from task_manager_py.domain.models.order import Order
 from datetime import datetime
+import socket
+from struct import *
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 # 아이템 1개당 20초
 ITEM_TIME_FACTOR = 20
@@ -17,7 +24,6 @@ class OrderService:
         self.occupied_info = occupied_info
         self.order_queue = []
         self.db = db
-
         # 로봇별 액션 클라이언트 초기화
         self.robot_clients = {}
         for r_id, robot_obj in robots.items():
@@ -35,6 +41,13 @@ class OrderService:
         for station, manip_id in self.manipulator_mapping.items():
             m_node = StationManipulatorClient(manip_id, db=self.db)
             self.manipulator_clients[station] = m_node
+        
+        try:
+            self.sock = socket.socket()
+            self.sock.connect(("192.168.0.2", 80))
+            print(f"@@@@@@{self.sock}")
+        except Exception as e:
+            print("소켓 연결 중 예외 발생:", e)
 
     def assign_order(self, order: Order):
         # 1) 스테이션별 아이템 분류
@@ -76,6 +89,11 @@ class OrderService:
         robot.remaining_items = dict(order.cart)
         robot.carrying_items = {}
 
+        # 전자석 붙이기
+        data = pack ("ii",25, True)
+        self.sock.send(data)
+        
+        
         # 5) 별도 스레드로 주문 수행
         t = threading.Thread(
             target=self.execute_order_in_thread,
@@ -138,7 +156,7 @@ class OrderService:
                 #     '새 경로의 첫 번째 스테이션이 여전히 점유 중'이면 2초 대기 후 다시 재계산
                 if (new_path == leftover_stations) or \
                    (len(new_path) > 0 and is_station_occupied(new_path[0])[0]):
-                    # 잠시 대기 후 다시 시도 (또는 다른 정책 추가 가능)
+                    # 잠시 대기 후 다시 시도 
                     print("@@@@ time sleeping 2second")
                     time.sleep(2)
                     # 사람이 점유 시간을 줄이도록
@@ -210,6 +228,10 @@ class OrderService:
 
         def _on_destination_done(success: bool):
             if success:
+                # 전자석 떼기
+                data = pack ("ii",25, False)
+                self.sock.send(data)
+                
                 # 목적지 방문 후 -> 출발지로 이동
                 client.navigate_to_station("출발지", {}, done_cb=_on_return_home_done)
             else:
@@ -255,7 +277,7 @@ class OrderService:
                     occupant_dict["robot"] = (False, 0)
                 else:
                     occupant_dict["robot"] = (True, new_t)
-                    print(self.occupied_info)
+                    #print(self.occupied_info)
 
             # 사람 점유
             p_occ, p_time = occupant_dict["person"]
