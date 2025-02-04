@@ -6,7 +6,7 @@ from rclpy.action import ActionClient
 from typing import Callable, Optional, Dict
 from datetime import datetime
 
-from task_manager.action import DispatchManipulationTask
+from task_manager_msgs.action import DispatchManipulationTask
 from task_manager_py.infrastructure.db_manager import DBManager
 
 class StationManipulatorClient(Node):

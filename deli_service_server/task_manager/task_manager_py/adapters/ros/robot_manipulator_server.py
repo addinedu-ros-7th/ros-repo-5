@@ -5,7 +5,7 @@ import rclpy
 from rclpy.action import ActionServer
 from rclpy.node import Node
 
-from task_manager.action import DispatchManipulationTask
+from task_manager_msgs.action import DispatchManipulationTask
 
 class RobotManipulatorServer(Node):
     def __init__(self, manipulator_id: str):

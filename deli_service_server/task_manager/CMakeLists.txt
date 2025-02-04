@@ -10,7 +10,7 @@ find_package(builtin_interfaces REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "../../deli_interfaces/task_manager_msgs/action/DispatchDeliveryTask.action"
-  "../../deli_interfaces/task_manager_msgs/action/DispatchManipulationTask.action"
+  #"../../deli_interfaces/task_manager_msgs/action/DispatchManipulationTask.action"
   "../../deli_interfaces/task_manager_msgs/msg/BatteryLevel.msg"
   "../../deli_interfaces/task_manager_msgs/msg/Payload.msg"
   "../../deli_interfaces/task_manager_msgs/msg/PickUp.msg"
