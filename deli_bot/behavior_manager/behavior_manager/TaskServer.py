@@ -4,7 +4,7 @@ from rclpy.action import ActionClient
 from rclpy.action import ActionServer
 
 from geometry_msgs.msg import PoseStamped
-from task_manager_msgs.action import Delivery
+from task_manager_msgs.action import DispatchDeliveryTask
 from task_manager_msgs.msg import PickUp, Payload
 from traffic_manager_msgs.srv import GetStationWaypoints
 from traffic_manager_msgs.msg import StationWaypoint
@@ -37,6 +37,11 @@ string error_msg
 geometry_msgs/PoseStamped current_pose
 float32 distance_remaining
 
+
+< Test Command >
+
+$ ros2 action send_goal /delibot_1_dispatch_delivery_task task_manager_msgs/action/DispatchDeliveryTask "{pickups: [{station: 'apple_shelf', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}]}" --feedback
+
 ================================================================ """
 
 
@@ -46,9 +51,9 @@ class TaskServer(Node):
         self.robot_id = robot_id
 
         # Initialize action Server
-        # self.action_server = ActionServer(
-        #     self, Delivery, f"{robot_id}_get_task", self.handle_dispatch_task
-        # )
+        self.task_server = ActionServer(
+            self, DispatchDeliveryTask, f"{robot_id}_dispatch_delivery_task", self.handle_dispatch_task
+        )
 
         # Initialize service client
         self.task_client = self.create_client(
@@ -59,78 +64,122 @@ class TaskServer(Node):
             self.get_logger().info(f"/{self.robot_id}/get_task_station Waiting for service...")
         self.get_logger().info(f"/{self.robot_id}/get_task_station Service is available!")
 
-        asyncio.run(self.request_task_station())
 
-    async def request_task_station(self):
+    async def handle_dispatch_task(self, goal_handle):
+        """
+        Receive an action goal and send a result to the Task Manager.
+        """
+        # request.pickups = [
+        #     PickUp(station='apple_shelf', handler=self.robot_id, payload=[Payload(sku='apple', quantity=5)]),
+        #     PickUp(station='peach_shelf', handler=self.robot_id, payload=[Payload(sku='peach', quantity=3)]),
+        # ]
+
+        pickups = goal_handle.request.pickups
+        goal_log_message = format_pickup_tasks_log(self.robot_id, pickups)
+        self.get_logger().info(f"{self.robot_id}_dispatch_delivery_task Goal received: {goal_log_message}")
+
+
+        """
+        result.success = 0: waypoint success & navigation success
+        result.success = 1: waypoint fail
+        result.success = 2: navigation fail
+        """
+
+        # Request waypoints
+        station_waypoint = await self.request_task_station(pickups)
+        if not station_waypoint:
+            result = self.send_result(
+                goal_handle, success=False, error_code=1, error_msg="Failed to get station waypoints."
+            )
+            return result
+
+        # Receive Pose
+        current_pose, distance_remaining = self.handle_pose()
+
+        # Send feedbacks
+        await self.send_feedback(current_pose, distance_remaining)
+
+        # Send a result
+        result = self.send_result(
+            goal_handle, success=True, error_code=0, error_msg="All tasks completed successfully."
+        )
+        return result
+
+
+    async def request_task_station(self, pickups):
+        """
+        Make a service request to get station waypoints and receive a response from the Traffic Client.
+        """
         request = GetStationWaypoints.Request()
-        request.pickups = [
-            PickUp(station='apple_shelf', handler=self.robot_id, payload=[Payload(sku='apple', quantity=5)]),
-            PickUp(station='peach_shelf', handler=self.robot_id, payload=[Payload(sku='peach', quantity=3)]),
-        ]
-        
-        req_log_message = format_pickup_tasks_log(self.robot_id, request.pickups)
+        request.pickups = pickups
+        req_log_message = format_pickup_tasks_log(self.robot_id, pickups)
         self.get_logger().info(f"/{self.robot_id}/get_task_station Request sent: \n{req_log_message}")
 
+        # Request station waypoints
         future = self.task_client.call_async(request)
         response = await future
-        self.get_logger().info(f"/{self.robot_id}/get_task_stationResponse Response received:")
 
-        # res_log_message = format_station_waypoints_log(self.robot_id, )
-        # self.get_logger().info(f"/{self.robot_id}/get_task_stationResponse Response received: {res_log_message}")
+        if response is None:
+            self.get_logger().error(f"/{self.robot_id}/get_task_station Response is None!")
+            return None
+    
+        if not response.station_waypoints:
+            self.get_logger().error(f"/{self.robot_id}/get_task_station Failed to receive waypoints.")
+            return None
+        
+        res_log_message = format_station_waypoints_log(self.robot_id, response.station_waypoints)
+        self.get_logger().info(f"/{self.robot_id}/get_task_station Response received: {res_log_message}")
+        return response.station_waypoints
 
 
-    # TODO: Implement task service server
-    def handle_dispatch_task(self, goal_handle):
+    async def send_feedback(self, current_pose, distance_remaining):
         """
-        Main callback for processing Task.
-        """
-        self.get_logger().info(f"[{self.robot_id}_task_server] Received task: {goal_handle.request.stations}")
-
-        # Initialize result
-        result = Delivery.Result()
-        result.success = True
-        result.error_code = 0
-        result.error_msg = ""
-
-        # Process each station in the stations list
-        for station in goal_handle.request.stations:
-            # Get Waypoint from Traffic Manager
-            self.get_logger().info(f"Fetching waypoint for station: {station}")
-            waypoint = self.traffic_client.get_waypoint(station)
-
-    def send_feedback(self, current_pose, distance_remaining):
-        """
-        Send feedback to the Task Manager.
+        Send action feedbacks to the Task Manager.
         """
         # bool success
         # int32 error_code :0=success, 1=waypoint failure, 2=navigation failure 
         # string error_msg
 
-        feedback = Delivery.Feedback()
-        feedback.current_pose = current_pose    # /amcl_pose or /tf
-        feedback.distance_remaining = distance_remaining  # Update with real distance
-        self.goal_handle.publish_feedback(feedback)
+        feedback_msg = DispatchDeliveryTask.Feedback()
+        feedback_msg.current_pose = current_pose    # /amcl_pose or /tf
+        feedback_msg.distance_remaining = distance_remaining  # Update with real distance
+        self.goal_handle.publish_feedback(feedback_msg)
+        await asyncio.sleep(1)
 
-    def send_result(self, success, error_code=0, error_msg=""):
+    # TODO: Implement server in NavManager 
+    def handle_pose(self):
+        # 현재 PoseStamped 정보 생성
+        pose = PoseStamped()
+        pose.pose.position.x = 1.0
+        pose.pose.position.y = 2.0
+        pose.pose.position.z = 0.0
+
+        distance_remaining = 15
+
+        return pose, distance_remaining
+
+    
+    def send_result(self, goal_handle, success, error_code=0, error_msg=""):
         """
-        Send result to the Task Manager.
+        Send an action result to the Task Manager.
         """
-        result = Delivery.Result()
+        result = DispatchDeliveryTask.Result()
         result.success = success
         result.error_code = error_code
         result.error_msg = error_msg
-        if self.goal_handle:
+        if goal_handle:
             if success:
-                self.goal_handle.succeed()
+                goal_handle.succeed()
             else:
-                self.goal_handle.abort()
+                goal_handle.abort()
+
+        log_message = f"Task Result - Success: {success}, Error Code: {error_code}, Message: {error_msg}"
 
         # Finalize result
-        if result.success:
-            self.goal_handle.succeed()
-            self.get_logger().info(f"Task completed successfully: {self.goal_handle.request.stations}")
+        if success:
+            self.get_logger().info(f"Task completed successfully: {log_message}")
         else:
-            self.get_logger().error(f"Task failed: {result.error_msg}")
+            self.get_logger().error(f"Task failed: {log_message}")
 
         return result
 

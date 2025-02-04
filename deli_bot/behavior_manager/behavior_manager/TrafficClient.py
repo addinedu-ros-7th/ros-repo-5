@@ -1,5 +1,7 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
+from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor
 
 from traffic_manager_msgs.srv import GetStationWaypoints
 
@@ -37,48 +39,46 @@ class TrafficClient(Node):
         self.robot_id = robot_id
         super().__init__(f"{self.robot_id}_traffic_client")
 
+        # self.group = ReentrantCallbackGroup()
+        self.serv_group = MutuallyExclusiveCallbackGroup()
+        self.cli_group = ReentrantCallbackGroup()
+
         # Initialize service server
         self.task_service = self.create_service(
-            GetStationWaypoints, f"/{self.robot_id}/get_task_station", self.handle_task_station
+            GetStationWaypoints, f"/{self.robot_id}/get_task_station", self.handle_task_station,
+            callback_group=self.serv_group
         )
         self.get_logger().info(f"/{self.robot_id}/get_task_station Service is ready!")
 
         # Initialize service client
         self.traffic_client = self.create_client(
-            GetStationWaypoints, f"/{self.robot_id}/get_station_waypoints")
+            GetStationWaypoints, f"/{self.robot_id}/get_station_waypoints", 
+            callback_group=self.cli_group
+        )
 
         # Wait for the service server to be available
         while not self.traffic_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(f'/{self.robot_id}/get_station_waypoints Waiting for service...')
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
 
-    def handle_task_station(self, request, response):
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.create_task(self.async_handle_task_station(request, response))
-        else:
-            self.get_logger().warn("No running event loop found! Creating a new one...")
-            thread = threading.Thread(target=self.run_async_task, args=(request, response))
-            thread.start()
-        return response
-    
-    def run_async_task(self, request, response):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(self.async_handle_task_station(request, response))
-
-    async def async_handle_task_station(self, request, response):
+    async def handle_task_station(self, request, response):
         task = request.pickups
         log_message = format_pickup_tasks_log(self.robot_id, task)
         self.get_logger().info(f"/{self.robot_id}/get_task_station Request received: \n{log_message}")
 
-        station_waypoint, log_message = await self.request_station_waypoints(task)
-        if station_waypoint:
-            response.station_waypoints = station_waypoint
+        result, log_message = await self.request_station_waypoints(task)
+        if result.station_waypoints:
+            response.station_waypoints = result.station_waypoints
             self.get_logger().info(f"/{self.robot_id}/get_task_station Response sent: \n{log_message}")
+            if response.station_waypoints:
+                self.get_logger().info(f"/{self.robot_id}/get_task_station Response Success!")
+            else:
+                self.get_logger().error(f"/{self.robot_id}/get_task_station Response is empty!")
+            
         else:
             self.get_logger().error(f"/{self.robot_id}/get_task_station Failed to get station waypoints")
 
+        return response
 
     async def request_station_waypoints(self, pickups):
         # Initialize a request
@@ -95,19 +95,58 @@ class TrafficClient(Node):
 
             log_message = format_station_waypoints_log(self.robot_id, result.station_waypoints)
             self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
-            return result.station_waypoints, log_message
+            return result, log_message
         
         except Exception as e:
             self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Error: {str(e)}")
             return None
     
 
+    # def handle_task_station(self, request, response):
+        # """
+        # :request:   pickups
+        # :response:  station_waypoints
+        # """
+        # log_message = format_pickup_tasks_log(self.robot_id, request.pickups)
+        # self.get_logger().info(f"/{self.robot_id}/get_task_station Request received: \n{log_message}")
+# 
+        # 
+        # Initialize request
+        # wp_request = GetStationWaypoints.Request()
+        # wp_request.pickups = request.pickups
+        # future = self.traffic_client.call_async(wp_request)
+        # future.add_done_callback(lambda future: self.get_station_waypoint_callback(future, response))
+        # 
+        # DEBUG: response 반환 확인
+        # self.get_logger().info(f"/{self.robot_id}/get_task_station Response success! : \n{future}")
+        # return response
+# 
+# 
+    # def get_station_waypoint_callback(self, future, response):
+        # try:
+            # if future.done():
+                # wp_response = future.result()
+                # log_message = format_station_waypoints_log(self.robot_id, wp_response.station_waypoints)
+                # self.get_logger().info(f"/{self.robot_id}/get_task_station Response received: \n{log_message}")
+                # 
+                # response.station_waypoints = wp_response.station_waypoints
+                # res_log_message = format_station_waypoints_log(self.robot_id, response.station_waypoints)
+                # self.get_logger().info(f"/{self.robot_id}/get_task_station Response sent : \n{res_log_message}")
+            # else:
+                # self.get_logger().error(f"/{self.robot_id}/get_task_station Future not completed!")
+        # except Exception as e:
+            # self.get_logger().error(f"/{self.robot_id}/get_task_station Exception: {str(e)}")
+
+
 def main(args=None):
     rclpy.init(args=args)
     node = TrafficClient("delibot_1")
 
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+
     try:
-        rclpy.spin(node)
+        executor.spin()
 
     except KeyboardInterrupt:
         pass    
