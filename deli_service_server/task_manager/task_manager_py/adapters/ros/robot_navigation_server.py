@@ -8,8 +8,8 @@ from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Float32
 
 # 변경된 action, msg import
-from task_manager.action import DispatchDeliveryTask
-from task_manager.msg import PickUp
+from task_manager_msgs.action import DispatchDeliveryTask
+from task_manager_msgs.msg import PickUp, Payload
 
 class RobotNavigationServer(Node):
     def __init__(self, robot_id: str):
@@ -23,7 +23,7 @@ class RobotNavigationServer(Node):
         self._action_server = ActionServer(
             self,
             DispatchDeliveryTask,
-            f"/delibot_{robot_id}/_dispatch_delivery_task",
+            f"/delibot_{robot_id}/dispatch_delivery_task",
             self.execute_callback
         )
 

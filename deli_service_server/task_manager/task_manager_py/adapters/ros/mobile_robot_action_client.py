@@ -9,8 +9,8 @@ from typing import Callable, Optional, Dict
 from datetime import datetime
 
 # 변경된 action, msg import
-from task_manager.action import DispatchDeliveryTask
-from task_manager.msg import PickUp, Payload
+from task_manager_msgs.action import DispatchDeliveryTask
+from task_manager_msgs.msg import PickUp, Payload
 
 from task_manager_py.infrastructure.db_manager import DBManager
 from task_manager_py.domain.models.robot import Robot
@@ -32,7 +32,7 @@ class MobileRobotActionClient(Node):
         self._nav_action_client = ActionClient(
             self,
             DispatchDeliveryTask,
-            f"/delibot_{robot_id}/_dispatch_delivery_task"
+            f"/delibot_{robot_id}/dispatch_delivery_task"
         )
 
         # (2) 배터리 Subscribe
