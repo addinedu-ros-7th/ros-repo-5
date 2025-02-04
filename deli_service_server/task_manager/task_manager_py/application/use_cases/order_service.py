@@ -89,10 +89,12 @@ class OrderService:
         robot.remaining_items = dict(order.cart)
         robot.carrying_items = {}
 
-        # 전자석 붙이기
-        data = pack ("ii",25, True)
-        self.sock.send(data)
-        
+        try :
+            # 전자석 붙이기
+            data = pack ("ii",25, True)
+            self.sock.send(data)
+        except Exception as e:
+            print("전자석 붙이기중 예외 발생", e)
         
         # 5) 별도 스레드로 주문 수행
         t = threading.Thread(
@@ -229,9 +231,12 @@ class OrderService:
         def _on_destination_done(success: bool):
             if success:
                 # 전자석 떼기
-                data = pack ("ii",25, False)
-                self.sock.send(data)
-                
+                try :
+                    # 전자석 붙이기
+                    data = pack ("ii",25, False)
+                    self.sock.send(data)
+                except Exception as e:
+                    print("전자석 붙이기중 예외 발생", e)
                 # 목적지 방문 후 -> 출발지로 이동
                 client.navigate_to_station("출발지", {}, done_cb=_on_return_home_done)
             else:

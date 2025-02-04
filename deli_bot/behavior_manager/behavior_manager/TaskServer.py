@@ -52,7 +52,7 @@ class TaskServer(Node):
 
         # Initialize action Server
         self.task_server = ActionServer(
-            self, DispatchDeliveryTask, f"{robot_id}_dispatch_delivery_task", self.handle_dispatch_task
+            self, DispatchDeliveryTask, f"{robot_id}/_dispatch_delivery_task", self.handle_dispatch_task
         )
 
         # Initialize service client

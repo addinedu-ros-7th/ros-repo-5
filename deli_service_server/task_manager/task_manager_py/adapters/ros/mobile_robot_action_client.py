@@ -32,7 +32,7 @@ class MobileRobotActionClient(Node):
         self._nav_action_client = ActionClient(
             self,
             DispatchDeliveryTask,
-            f"/robot_{robot_id}/navigation_task"
+            f"/delibot_{robot_id}/_dispatch_delivery_task"
         )
 
         # (2) 배터리 Subscribe

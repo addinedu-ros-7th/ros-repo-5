@@ -23,7 +23,7 @@ class RobotNavigationServer(Node):
         self._action_server = ActionServer(
             self,
             DispatchDeliveryTask,
-            f"/robot_{robot_id}/navigation_task",
+            f"/delibot_{robot_id}/_dispatch_delivery_task",
             self.execute_callback
         )
 

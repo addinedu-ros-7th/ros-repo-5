@@ -145,7 +145,7 @@ def main():
 
     # 5) 모든 노드를 합쳐 spin
     all_nodes = [
-        nav_server_r1,
+        #nav_server_r1,
         nav_server_r2,
         nav_server_r3,
         manip_server_cold,
