@@ -40,7 +40,7 @@ float32 distance_remaining
 
 < Test Command >
 
-$ ros2 action send_goal /delibot_1_dispatch_delivery_task task_manager_msgs/action/DispatchDeliveryTask "{pickups: [{station: 'apple_shelf', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}]}" --feedback
+$ ros2 action send_goal /delibot_1/dispatch_delivery_task task_manager_msgs/action/DispatchDeliveryTask "{pickups: [{station: 'apple_shelf', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}]}" --feedback
 
 ================================================================ """
 
@@ -52,8 +52,9 @@ class TaskServer(Node):
 
         # Initialize action Server
         self.task_server = ActionServer(
-            self, DispatchDeliveryTask, f"{robot_id}/_dispatch_delivery_task", self.handle_dispatch_task
+            self, DispatchDeliveryTask, f"{self.robot_id}/dispatch_delivery_task", self.handle_dispatch_task
         )
+        self.get_logger().info(f"/{self.robot_id}/dispatch_delivery_task Service is ready!")
 
         # Initialize service client
         self.task_client = self.create_client(
@@ -67,25 +68,13 @@ class TaskServer(Node):
 
     async def handle_dispatch_task(self, goal_handle):
         """
-        Receive an action goal and send a result to the Task Manager.
+        Handles incoming dispatch delivery task requests.
         """
-        # request.pickups = [
-        #     PickUp(station='apple_shelf', handler=self.robot_id, payload=[Payload(sku='apple', quantity=5)]),
-        #     PickUp(station='peach_shelf', handler=self.robot_id, payload=[Payload(sku='peach', quantity=3)]),
-        # ]
-
+        self.goal_handle = goal_handle
         pickups = goal_handle.request.pickups
         goal_log_message = format_pickup_tasks_log(self.robot_id, pickups)
-        self.get_logger().info(f"{self.robot_id}_dispatch_delivery_task Goal received: {goal_log_message}")
+        self.get_logger().info(f"/{self.robot_id}_dispatch_delivery_task Goal received: \n{goal_log_message}")
 
-
-        """
-        result.success = 0: waypoint success & navigation success
-        result.success = 1: waypoint fail
-        result.success = 2: navigation fail
-        """
-
-        # Request waypoints
         station_waypoint = await self.request_task_station(pickups)
         if not station_waypoint:
             result = self.send_result(
@@ -93,13 +82,9 @@ class TaskServer(Node):
             )
             return result
 
-        # Receive Pose
         current_pose, distance_remaining = self.handle_pose()
-
-        # Send feedbacks
         await self.send_feedback(current_pose, distance_remaining)
 
-        # Send a result
         result = self.send_result(
             goal_handle, success=True, error_code=0, error_msg="All tasks completed successfully."
         )
@@ -108,43 +93,68 @@ class TaskServer(Node):
 
     async def request_task_station(self, pickups):
         """
-        Make a service request to get station waypoints and receive a response from the Traffic Client.
+        Requests waypoints for pickup stations from the Traffic Manager.
         """
         request = GetStationWaypoints.Request()
         request.pickups = pickups
-        req_log_message = format_pickup_tasks_log(self.robot_id, pickups)
-        self.get_logger().info(f"/{self.robot_id}/get_task_station Request sent: \n{req_log_message}")
 
-        # Request station waypoints
         future = self.task_client.call_async(request)
         response = await future
 
-        if response is None:
-            self.get_logger().error(f"/{self.robot_id}/get_task_station Response is None!")
-            return None
-    
-        if not response.station_waypoints:
+        if response is None or not response.station_waypoints:
             self.get_logger().error(f"/{self.robot_id}/get_task_station Failed to receive waypoints.")
             return None
-        
-        res_log_message = format_station_waypoints_log(self.robot_id, response.station_waypoints)
-        self.get_logger().info(f"/{self.robot_id}/get_task_station Response received: {res_log_message}")
         return response.station_waypoints
 
 
     async def send_feedback(self, current_pose, distance_remaining):
         """
-        Send action feedbacks to the Task Manager.
+        Send action feedbacks.
         """
-        # bool success
-        # int32 error_code :0=success, 1=waypoint failure, 2=navigation failure 
-        # string error_msg
+        if hasattr(self, "goal_handle") and self.goal_handle:
+            feedback_msg = DispatchDeliveryTask.Feedback()
+            feedback_msg.current_pose = current_pose    # /amcl_pose or /tf
+            feedback_msg.distance_remaining = distance_remaining  # Update with real distance
+            self.goal_handle.publish_feedback(feedback_msg)
 
-        feedback_msg = DispatchDeliveryTask.Feedback()
-        feedback_msg.current_pose = current_pose    # /amcl_pose or /tf
-        feedback_msg.distance_remaining = distance_remaining  # Update with real distance
-        self.goal_handle.publish_feedback(feedback_msg)
-        await asyncio.sleep(1)
+            self.get_logger().info(f"Feedback sent: \n- Current pose: {current_pose}, Distance remaining: {distance_remaining}")
+        else:
+            self.get_logger().error("No active goal handle to send feedback.")
+
+    
+    def send_result(self, goal_handle, success, error_code=0, error_msg=""):
+        """
+        Send the final result of the action task.
+
+        Args:
+            goal_handle (GoalHandle): Handle for the current goal.
+            success (bool): Whether the task was successful.
+            error_code (int, optional): Error code (0=success, 1=waypoint failure, 2=navigation failure). Defaults to 0.
+            error_msg (str, optional): Error message. Defaults to "".
+        
+        Returns:
+            DispatchDeliveryTask.Result: The final result of the task execution.
+        """
+        result = DispatchDeliveryTask.Result()
+        result.success = success
+        result.error_code = error_code
+        result.error_msg = error_msg
+
+        if goal_handle:
+            if success:
+                goal_handle.succeed()
+            else:
+                goal_handle.abort()
+
+        log_message = f"Task Result: \n- Success: {success}, Error Code: {error_code}, Message: {error_msg}"
+
+        if success:
+            self.get_logger().info(f"Task completed successfully: {log_message}")
+        else:
+            self.get_logger().error(f"Task failed: {log_message}")
+
+        return result
+
 
     # TODO: Implement server in NavManager 
     def handle_pose(self):
@@ -154,34 +164,8 @@ class TaskServer(Node):
         pose.pose.position.y = 2.0
         pose.pose.position.z = 0.0
 
-        distance_remaining = 15
-
+        distance_remaining = 15.0
         return pose, distance_remaining
-
-    
-    def send_result(self, goal_handle, success, error_code=0, error_msg=""):
-        """
-        Send an action result to the Task Manager.
-        """
-        result = DispatchDeliveryTask.Result()
-        result.success = success
-        result.error_code = error_code
-        result.error_msg = error_msg
-        if goal_handle:
-            if success:
-                goal_handle.succeed()
-            else:
-                goal_handle.abort()
-
-        log_message = f"Task Result - Success: {success}, Error Code: {error_code}, Message: {error_msg}"
-
-        # Finalize result
-        if success:
-            self.get_logger().info(f"Task completed successfully: {log_message}")
-        else:
-            self.get_logger().error(f"Task failed: {log_message}")
-
-        return result
 
 
 def main(args=None):
