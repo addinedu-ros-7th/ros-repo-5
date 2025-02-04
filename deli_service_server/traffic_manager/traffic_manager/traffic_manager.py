@@ -65,7 +65,7 @@ class TrafficManager(Node):
             self.pose_map[place_name] = pose
 
         # Support multiple robots
-        self.robots = ["delibot_1"] #, "delibot_2", "delibot_3"]
+        self.robots = ["delibot_1", "delibot_2", "delibot_3"]
         self.station_waypoint_server = {}
         for robot_id in self.robots:
             self.station_waypoint_server[robot_id] = self.create_service(

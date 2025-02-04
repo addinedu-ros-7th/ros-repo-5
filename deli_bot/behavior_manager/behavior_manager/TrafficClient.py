@@ -100,43 +100,7 @@ class TrafficClient(Node):
         except Exception as e:
             self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Error: {str(e)}")
             return None
-    
-
-    # def handle_task_station(self, request, response):
-        # """
-        # :request:   pickups
-        # :response:  station_waypoints
-        # """
-        # log_message = format_pickup_tasks_log(self.robot_id, request.pickups)
-        # self.get_logger().info(f"/{self.robot_id}/get_task_station Request received: \n{log_message}")
-# 
-        # 
-        # Initialize request
-        # wp_request = GetStationWaypoints.Request()
-        # wp_request.pickups = request.pickups
-        # future = self.traffic_client.call_async(wp_request)
-        # future.add_done_callback(lambda future: self.get_station_waypoint_callback(future, response))
-        # 
-        # DEBUG: response 반환 확인
-        # self.get_logger().info(f"/{self.robot_id}/get_task_station Response success! : \n{future}")
-        # return response
-# 
-# 
-    # def get_station_waypoint_callback(self, future, response):
-        # try:
-            # if future.done():
-                # wp_response = future.result()
-                # log_message = format_station_waypoints_log(self.robot_id, wp_response.station_waypoints)
-                # self.get_logger().info(f"/{self.robot_id}/get_task_station Response received: \n{log_message}")
-                # 
-                # response.station_waypoints = wp_response.station_waypoints
-                # res_log_message = format_station_waypoints_log(self.robot_id, response.station_waypoints)
-                # self.get_logger().info(f"/{self.robot_id}/get_task_station Response sent : \n{res_log_message}")
-            # else:
-                # self.get_logger().error(f"/{self.robot_id}/get_task_station Future not completed!")
-        # except Exception as e:
-            # self.get_logger().error(f"/{self.robot_id}/get_task_station Exception: {str(e)}")
-
+        
 
 def main(args=None):
     rclpy.init(args=args)
