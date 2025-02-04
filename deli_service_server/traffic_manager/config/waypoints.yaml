@@ -1,18 +1,18 @@
-apple_shelf:
+general_station:
   pose:
-    x: 0.8
-    y: 1.5
+    x: 1.7
+    y: -0.77
     z: 0.0
     orientation:
       x: 0.0
       y: 0.0
-      z: 0.0
-      w: 1.0
+      z: 0.71
+      w: 0.704
 
-peach_shelf:
+fresh_station:
   pose:
-    x: 3.5
-    y: 2.5
+    x: 1.77
+    y: 0.38
     z: 0.0
     orientation:
       x: 0.0
@@ -20,32 +20,21 @@ peach_shelf:
       z: 1.0
       w: 0.0
 
-beer_shelf:
+frozen_station:
   pose:
-    x: 2.0
-    y: 3.5
+    x: 1.73
+    y: -0.8
     z: 0.0
     orientation:
       x: 0.0
       y: 0.0
-      z: 0.707
-      w: 0.707
+      z: 0.705
+      w: 0.708
 
-lotion_shelf:
+dropoff_station:
   pose:
-    x: 4.0
-    y: 1.0
-    z: 0.0
-    orientation:
-      x: 0.0
-      y: 0.0
-      z: -0.707
-      w: 0.707
-
-dropoff:
-  pose:
-    x: 5.0
-    y: 5.0
+    x: -0.405
+    y: -0.737
     z: 0.0
     orientation:
       x: 0.0
@@ -55,8 +44,8 @@ dropoff:
 
 charging_station_1:
   pose:
-    x: 5.0
-    y: 5.0
+    x: -0.09
+    y: -0.403
     z: 0.0
     orientation:
       x: 0.0
@@ -66,8 +55,8 @@ charging_station_1:
 
 charging_station_2:
   pose:
-    x: 5.0
-    y: 5.0
+    x: -0.06
+    y: 0.0
     z: 0.0
     orientation:
       x: 0.0
@@ -77,8 +66,8 @@ charging_station_2:
 
 charging_station_3:
   pose:
-    x: 5.0
-    y: 5.0
+    x: 0.0
+    y: 0.0
     z: 0.0
     orientation:
       x: 0.0
