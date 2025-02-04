@@ -69,9 +69,9 @@ def create_app() -> FastAPI:
     # 2) 로봇 세팅 (주행 3대 + 로봇팔 3대)
     # -------------------------
     robots = {
-        "1": Robot("1", "주행로봇1", 1.0, robot_type="주행"),
-        "2": Robot("2", "주행로봇2", 1.0, robot_type="주행"),
-        "3": Robot("3", "주행로봇3", 1.0, robot_type="주행"),
+        "1": Robot("1", "주행로봇1", 1.0, robot_type="주행", loaction= (-0.09,-0.403)),
+        "2": Robot("2", "주행로봇2", 1.0, robot_type="주행", loaction= (-0.06,0.0)),
+        "3": Robot("3", "주행로봇3", 1.0, robot_type="주행", loaction= (0.0,0.0)),
         "10": Robot("10", "냉동로봇팔", 1.0, robot_type="로봇팔"),
         "11": Robot("11", "신선로봇팔", 1.0, robot_type="로봇팔"),
         "12": Robot("12", "일반로봇팔", 1.0, robot_type="로봇팔"),
@@ -120,7 +120,7 @@ def main():
     print(">>> rclpy.init() done.")
 
     # 2) ROS2 액션 서버 생성
-    print(">>> Creating RobotNavigationServer for 1,2,3...")
+    #print(">>> Creating RobotNavigationServer for 1,2,3...")
     #nav_server_r1 = RobotNavigationServer("1")
     #nav_server_r2 = RobotNavigationServer("2")
     #nav_server_r3 = RobotNavigationServer("3")
