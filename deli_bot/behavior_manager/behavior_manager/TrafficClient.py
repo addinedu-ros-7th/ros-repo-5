@@ -29,8 +29,8 @@ StationWaypoint[] station_waypoints
 
 < Test Command >
 $ ros2 service call /delibot_1/get_task_station traffic_manager_msgs/srv/GetStationWaypoints "pickups:
-- {station: 'apple_shelf', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}
-- {station: 'peach_shelf', handler: 'delibot_1', payload: [{sku: 'peach', quantity: 3}]}"
+- {station: 'fresh_station', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}
+- {station: 'fresh_station', handler: 'delibot_1', payload: [{sku: 'peach', quantity: 3}]}"
 
 ================================================================ """
 
@@ -63,7 +63,7 @@ class TrafficClient(Node):
 
     async def handle_task_station(self, request, response):
         task = request.pickups
-        log_message = format_pickup_tasks_log(self.robot_id, task)
+        log_message = format_pickup_tasks_log(task)
         self.get_logger().info(f"/{self.robot_id}/get_task_station Request received: \n{log_message}")
 
         result, log_message = await self.request_station_waypoints(task)
@@ -93,7 +93,7 @@ class TrafficClient(Node):
                 self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Failed to receive waypoints.")
                 return None
 
-            log_message = format_station_waypoints_log(self.robot_id, result.station_waypoints)
+            log_message = format_station_waypoints_log(result.station_waypoints)
             self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
             return result, log_message
         

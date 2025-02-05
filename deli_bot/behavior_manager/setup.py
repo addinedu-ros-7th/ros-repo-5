@@ -24,6 +24,7 @@ setup(
             'nav_client = behavior_manager.NavClient:main',
             'task_server = behavior_manager.TaskServer:main',
             'traffic_client = behavior_manager.TrafficClient:main',
+            'goal_listener = behavior_manager.GoalListener:main'
         ],
     },
 )

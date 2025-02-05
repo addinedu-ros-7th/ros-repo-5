@@ -12,7 +12,6 @@ find_package(geometry_msgs REQUIRED)
 find_package(task_manager_msgs REQUIRED)
 
 set(srv_files
-  "srv/GetPose.srv"
   "srv/GetStationWaypoints.srv"
 )
 
