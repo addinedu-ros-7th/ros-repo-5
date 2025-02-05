@@ -1,0 +1,42 @@
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">   
+    <Sequence name="GoalHandling">
+      <!-- Uses GoalUpdated to detect when a new goal is received. -->
+      <GoalUpdated/>
+      <!-- Receives /goal_pose data and stores it in the Blackboard -->
+      <SetBlackboardVariable name="goal" value="{goal_pose}"/>
+    </Sequence>
+
+    <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+      <PipelineSequence name="NavigateWithReplanning">
+        <!-- Compute a new path to the goal using the selected planner -->
+        <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+        <!-- Follow the computed path using the selected controller -->
+        <FollowPath path="{path}" controller_id="FollowPath"/>
+      </PipelineSequence>
+
+      <!-- Obstacle recovery mechanism -->
+      <ReactiveFallback name="RecoveryFallback">
+        <!-- Clear only the obstacle layer instead of clearing the entire costmap -->
+        <Sequence name="ClearingActions">
+          <ClearSpecificCostmapLayer layer="ObstacleLayer" service_name="global_costmap/clear_obstacles"/>
+          <ClearSpecificCostmapLayer layer="VoxelLayer" service_name="local_costmap/clear_voxel"/>
+        </Sequence>
+        <!-- Rotate in small increments to escape from tight spaces -->
+        <Spin spin_dist="0.785"/>
+        <Spin spin_dist="0.785"/>
+        <!-- Move backward to avoid obstacles -->
+        <BackUp backup_dist="0.20" backup_speed="0.10"/>
+      </ReactiveFallback>
+
+      <!-- Actions to perform after reaching the goal -->
+      <Sequence name="GoalReachedActions">
+        <Wait wait_duration="5.0"/>
+        <!-- <Service ID="ReportArrival">
+          <service_name="report_arrival">
+          <request="{}">
+        </Service> -->
+      </Sequence>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>
