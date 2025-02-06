@@ -1,6 +1,0 @@
-# Request
-StationWaypoint[] station_waypoints
-
----
-# Response
-bool success

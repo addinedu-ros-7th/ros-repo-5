@@ -76,7 +76,7 @@ class TrafficManager(Node):
     def handle_station_waypoints(self, request, response):
         robot_id = request.pickups[0].handler
         response.station_waypoints = []
-        pickup_log = format_pickup_tasks_log(robot_id, request.pickups)
+        pickup_log = format_pickup_tasks_log(request.pickups)
         self.get_logger().info(f"/{robot_id}/get_station_waypoints Request received: \n{pickup_log}")
 
         for pickup in request.pickups:
@@ -88,11 +88,11 @@ class TrafficManager(Node):
                 
             else:
                 station_waypoint.waypoint = PoseStamped()
-                self.get_logger().warn(f"No waypoint found for station: {pickup.station}")
+                self.get_logger().error(f"No waypoint found for station: {pickup.station}")
 
             response.station_waypoints.append(station_waypoint)
 
-        log_message = format_station_waypoints_log(robot_id, response.station_waypoints)
+        log_message = format_station_waypoints_log(response.station_waypoints)
         self.get_logger().info(f"/{pickup.handler}/get_station_waypoints Response sent: \n{log_message}")
 
         if response.station_waypoints:

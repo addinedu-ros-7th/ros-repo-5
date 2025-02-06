@@ -1,23 +1,20 @@
 import rclpy
 from rclpy.node import Node
-from rclpy.action import ActionClient
 from rclpy.action import ActionServer
 
 from geometry_msgs.msg import PoseStamped
 from task_manager_msgs.action import DispatchDeliveryTask
-from task_manager_msgs.msg import PickUp, Payload
 from traffic_manager_msgs.srv import GetStationWaypoints
-from traffic_manager_msgs.msg import StationWaypoint
 
-from traffic_manager.utils import format_pickup_tasks_log, format_station_waypoints_log
+from behavior_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log, format_feedback_log
 
 import asyncio
 
 """ ================================================================
 
 < Action Server >
-- service type : Delivery
-- service name : "get_task"
+- service type : DispatchDeliveryTask
+- service name : "dispatch_delivery_task"
 - callback :
 
 
@@ -40,7 +37,7 @@ float32 distance_remaining
 
 < Test Command >
 
-$ ros2 action send_goal /delibot_1/dispatch_delivery_task task_manager_msgs/action/DispatchDeliveryTask "{pickups: [{station: 'apple_shelf', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}]}" --feedback
+$ ros2 action send_goal /delibot_1/dispatch_delivery_task task_manager_msgs/action/DispatchDeliveryTask "{pickups: [{station: 'fresh_station', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}]}" --feedback
 
 ================================================================ """
 
@@ -57,30 +54,34 @@ class TaskServer(Node):
         self.get_logger().info(f"/{self.robot_id}/dispatch_delivery_task Service is ready!")
 
         # Initialize service client
-        self.task_client = self.create_client(
-            GetStationWaypoints, f"/{self.robot_id}/get_task_station")
-        
-        # Wait for the action server to be available
-        while not self.task_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info(f"/{self.robot_id}/get_task_station Waiting for service...")
-        self.get_logger().info(f"/{self.robot_id}/get_task_station Service is available!")
+        self.waypoint_client = self.create_client(
+            GetStationWaypoints, f"{self.robot_id}/get_station_waypoints")
+
+        # Initialize topic publisher=========================
+        self.pose_publisher = self.create_publisher(
+            PoseStamped, "goal_pose", 10
+        )
+        self.get_logger().info(f"/goal_pose Topic publisher is ready!")
+
 
 
     async def handle_dispatch_task(self, goal_handle):
         """
-        Handles incoming dispatch delivery task requests.
+        Handle incoming dispatch delivery task requests.
         """
         self.goal_handle = goal_handle
         pickups = goal_handle.request.pickups
-        goal_log_message = format_pickup_tasks_log(self.robot_id, pickups)
+        goal_log_message = format_pickup_tasks_log(pickups)
         self.get_logger().info(f"/{self.robot_id}_dispatch_delivery_task Goal received: \n{goal_log_message}")
 
-        station_waypoint = await self.request_task_station(pickups)
-        if not station_waypoint:
+        wp_result = await self.request_station_waypoints(pickups)
+        if not wp_result:
             result = self.send_result(
                 goal_handle, success=False, error_code=1, error_msg="Failed to get station waypoints."
             )
             return result
+        
+        self.publish_goal_pose(wp_result.station_waypoints[0])
 
         current_pose, distance_remaining = self.handle_pose()
         await self.send_feedback(current_pose, distance_remaining)
@@ -91,20 +92,52 @@ class TaskServer(Node):
         return result
 
 
-    async def request_task_station(self, pickups):
+    async def request_station_waypoints(self, pickups):
         """
-        Requests waypoints for pickup stations from the Traffic Manager.
+        Request waypoints for pickup stations from the Traffic Manager.
         """
+        # Wait for the service server to be available
+        while not self.waypoint_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info(f'/{self.robot_id}/get_station_waypoints Waiting for service...')
+        self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
+
         request = GetStationWaypoints.Request()
         request.pickups = pickups
+        future = self.waypoint_client.call_async(request)
+        self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Request sending...")
 
-        future = self.task_client.call_async(request)
-        response = await future
+        result = await future
 
-        if response is None or not response.station_waypoints:
-            self.get_logger().error(f"/{self.robot_id}/get_task_station Failed to receive waypoints.")
+        if result is None or not result.station_waypoints:
+            self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Failed to receive waypoints.")
             return None
-        return response.station_waypoints
+        
+        log_message = format_station_waypoints_log(result.station_waypoints)
+        self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
+
+        return result
+
+    def publish_goal_pose(self, station_waypoint):
+        """
+        Publish goal pose based on the received waypoint.
+        """
+        waypoint = station_waypoint.waypoint
+
+        position = waypoint.pose.position
+        orientation = waypoint.pose.orientation
+
+        pose_msg = PoseStamped()
+        pose_msg.header.stamp = self.get_clock().now().to_msg()
+        pose_msg.header.frame_id = "map"
+
+        pose_msg.pose.position.x = position.x
+        pose_msg.pose.position.y = position.y
+        pose_msg.pose.position.z = position.z
+        pose_msg.pose.orientation = orientation
+
+        self.pose_publisher.publish(pose_msg)
+        log_message = format_pose_log(pose_msg)
+        self.get_logger().info(f"Published /goal_pose: \n{log_message}")
 
 
     async def send_feedback(self, current_pose, distance_remaining):
@@ -117,7 +150,8 @@ class TaskServer(Node):
             feedback_msg.distance_remaining = distance_remaining  # Update with real distance
             self.goal_handle.publish_feedback(feedback_msg)
 
-            self.get_logger().info(f"Feedback sent: \n- Current pose: {current_pose}, Distance remaining: {distance_remaining}")
+            log_message = format_feedback_log(current_pose, distance_remaining)
+            self.get_logger().info(f"Feedback sent: \n{log_message}")
         else:
             self.get_logger().error("No active goal handle to send feedback.")
 
@@ -149,9 +183,9 @@ class TaskServer(Node):
         log_message = f"Task Result: \n- Success: {success}, Error Code: {error_code}, Message: {error_msg}"
 
         if success:
-            self.get_logger().info(f"Task completed successfully: {log_message}")
+            self.get_logger().info(f"Task completed successfully: \n{log_message}")
         else:
-            self.get_logger().error(f"Task failed: {log_message}")
+            self.get_logger().error(f"Task failed: \n{log_message}")
 
         return result
 
@@ -177,8 +211,9 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
 
-    node.destroy_node()
-    rclpy.shutdown()
-
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+        
 if __name__ == '__main__':
     main()
