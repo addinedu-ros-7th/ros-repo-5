@@ -52,6 +52,33 @@ class AdminWindow(QMainWindow, LoginUIClass):
         self.update_robot_logs()
         self.update_users_table()
 
+        self.btn_update_time.clicked.connect(self.send_waiting_time_update)
+
+    def send_waiting_time_update(self):
+        """
+        사용자가 선택한 매대와 입력한 시간을 API에 전송
+        """
+        # 선택된 매대 확인
+        normal_time = int(self.lineEdit.text()) * 60 if self.radio_normal.isChecked() else 0
+        cold_time = int(self.lineEdit.text()) * 60 if self.radio_cold.isChecked() else 0
+        fresh_time = int(self.lineEdit.text()) * 60 if self.radio_fresh.isChecked() else 0
+
+        # API 요청 데이터
+        data = {
+            "일반 매대": normal_time,
+            "냉동 매대": cold_time,
+            "신선 매대": fresh_time
+        }
+
+        try:
+            response = requests.post("http://0.0.0.0:8000/api/robots/waiting-time", json=data)
+            if response.status_code == 200:
+                print("대기 시간 업데이트 성공:", response.json())
+            else:
+                print(f"API 요청 실패: HTTP {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"API 요청 중 오류 발생: {e}")
+
     def update_users_table(self):
         """
         /api/users API를 통해 사용자 목록을 받아 table3에 표시한다.
@@ -348,9 +375,10 @@ class AdminWindow(QMainWindow, LoginUIClass):
         """
         좌표 변환 (단순 스케일 예시)
         """
-        scale = 50
-        px = int(x * scale) - 75 + 70
-        py = int(y * scale) - 75 + 70
+        scale = 1000
+        px = int(x * scale) + (- 75 + 70)
+        py = int(y * scale) + (- 75 + 70) 
+        print(px, ",",py)
         return px, py
 
     def _set_robot_state_text(self, robot_index, text):

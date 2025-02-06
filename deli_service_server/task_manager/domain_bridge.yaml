@@ -1,0 +1,57 @@
+# 예) domain_bridge.yaml
+domain_bridge:
+  version: 2
+  bridges:
+    # ---------------------------
+    # 1) Domain 0 <-> Domain 1 (로봇1)
+    # ---------------------------
+    - name: "bridge_robot1"
+      from_domain_id: 6
+      to_domain_id: 1
+      topics:
+        # (1) 액션(DispatchDeliveryTask)도 내부적으로는 여러 토픽이지만,
+        #     domain_bridge에서는 "action" 대신 type을 정확히 기입하면 자동 브릿지
+        - topic: "/delibot_1/dispatch_delivery_task"
+          remap: "/dispatch_delivery_task"
+          type: "task_manager_msgs/action/DispatchDeliveryTask"
+          supported_directions: [bidirectional]
+
+        # (2) 배터리 토픽
+        - topic: "/robot_1/battery"
+          remap: "/battery"
+          type: "std_msgs/msg/Float32"
+          supported_directions: [bidirectional]
+
+    # ---------------------------
+    # 2) Domain 0 <-> Domain 2 (로봇2)
+    # ---------------------------
+    - name: "bridge_robot2"
+      from_domain_id: 6
+      to_domain_id: 2
+      topics:
+        - topic: "/delibot_2/dispatch_delivery_task"
+          remap: "/dispatch_delivery_task"
+          type: "task_manager_msgs/action/DispatchDeliveryTask"
+          supported_directions: [bidirectional]
+
+        - topic: "/robot_2/battery"
+          remap: "/battery"
+          type: "std_msgs/msg/Float32"
+          supported_directions: [bidirectional]
+
+    # ---------------------------
+    # 3) Domain 0 <-> Domain 3 (로봇3)
+    # ---------------------------
+    - name: "bridge_robot3"
+      from_domain_id: 6
+      to_domain_id: 3
+      topics:
+        - topic: "/delibot_3/dispatch_delivery_task"
+          remap: "/dispatch_delivery_task"
+          type: "task_manager_msgs/action/DispatchDeliveryTask"
+          supported_directions: [bidirectional]
+
+        - topic: "/robot_3/battery"
+          remap: "/battery"
+          type: "std_msgs/msg/Float32"
+          supported_directions: [bidirectional]

@@ -23,11 +23,11 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>5</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
-     <string>Tab 1</string>
+     <string>로봇 위치</string>
     </attribute>
     <widget class="QLabel" name="robot_image5">
      <property name="geometry">
@@ -88,7 +88,7 @@
    </widget>
    <widget class="QWidget" name="tab_2">
     <attribute name="title">
-     <string>Tab 2</string>
+     <string>로봇 상태</string>
     </attribute>
     <widget class="QGroupBox" name="groupBox">
      <property name="geometry">
@@ -249,7 +249,7 @@
    </widget>
    <widget class="QWidget" name="tab_3">
     <attribute name="title">
-     <string>Page</string>
+     <string>주문목록 및 대시보드</string>
     </attribute>
     <widget class="QTableView" name="table1">
      <property name="geometry">
@@ -368,7 +368,7 @@
    </widget>
    <widget class="QWidget" name="tab_4">
     <attribute name="title">
-     <string>Page</string>
+     <string>로봇 로그</string>
     </attribute>
     <widget class="QTableView" name="table2">
      <property name="geometry">
@@ -383,7 +383,7 @@
    </widget>
    <widget class="QWidget" name="tab_5">
     <attribute name="title">
-     <string>Page</string>
+     <string>사용자 목록</string>
     </attribute>
     <widget class="QTableView" name="table3">
      <property name="geometry">
@@ -394,6 +394,128 @@
        <height>511</height>
       </rect>
      </property>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="tab_6">
+    <attribute name="title">
+     <string>매대 점유 예상 시간 입력</string>
+    </attribute>
+    <widget class="QGroupBox" name="groupBox_9">
+     <property name="geometry">
+      <rect>
+       <x>290</x>
+       <y>280</y>
+       <width>521</width>
+       <height>251</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string/>
+     </property>
+     <widget class="QRadioButton" name="radio_normal">
+      <property name="geometry">
+       <rect>
+        <x>160</x>
+        <y>110</y>
+        <width>111</width>
+        <height>25</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>일반 매대</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="radio_fresh">
+      <property name="geometry">
+       <rect>
+        <x>160</x>
+        <y>150</y>
+        <width>111</width>
+        <height>25</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>신선 매대</string>
+      </property>
+     </widget>
+     <widget class="QRadioButton" name="radio_cold">
+      <property name="geometry">
+       <rect>
+        <x>160</x>
+        <y>190</y>
+        <width>111</width>
+        <height>25</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>냉동 매대</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label">
+      <property name="geometry">
+       <rect>
+        <x>30</x>
+        <y>30</y>
+        <width>91</width>
+        <height>19</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>점유 예상 시간</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_2">
+      <property name="geometry">
+       <rect>
+        <x>30</x>
+        <y>110</y>
+        <width>91</width>
+        <height>19</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>점유 예정 매대</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="lineEdit">
+      <property name="geometry">
+       <rect>
+        <x>160</x>
+        <y>30</y>
+        <width>71</width>
+        <height>27</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_3">
+      <property name="geometry">
+       <rect>
+        <x>240</x>
+        <y>30</y>
+        <width>91</width>
+        <height>19</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>분</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="btn_update_time">
+      <property name="geometry">
+       <rect>
+        <x>340</x>
+        <y>30</y>
+        <width>151</width>
+        <height>191</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>적용</string>
+      </property>
+     </widget>
     </widget>
    </widget>
   </widget>
