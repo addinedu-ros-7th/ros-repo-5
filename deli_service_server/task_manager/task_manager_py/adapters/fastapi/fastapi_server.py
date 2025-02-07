@@ -342,14 +342,16 @@ def get_robots_status(request: Request) -> dict:
 
     results = []
     for r_id, robot_obj in order_service.robots.items():
-        status_str = "주문처리중" if robot_obj.busy else "대기중"
+        # robot_obj.current_activity 를 그대로 상태로 사용
+        status_str = robot_obj.current_activity
+
         data = {
             "robotId": robot_obj.robot_id,
             "name": robot_obj.name,
             "type": robot_obj.robot_type,
             "batteryLevel": robot_obj.battery_level,
             "waitingTime": robot_obj.waiting_time,
-            "status": status_str,
+            "status": status_str,  # <- 더 자세한 상태 문자열
             "location": {
                 "x": robot_obj.location[0],
                 "y": robot_obj.location[1]
@@ -507,4 +509,51 @@ def update_person_on_shelf(req: PersonOnShelfRequest, request: Request) -> dict:
     return {
         "status": "success",
         "message": "person on shelf updated successfully"
+    }
+
+
+
+@router.get("/api/shelves/status")
+def get_shelf_status(request: Request) -> dict:
+    """
+    현재 매대 점유 상태를 조회하는 API.
+    - 각 매대에 대해 'robot', 'person'이 점유 중인지 여부와 남은 시간을 반환.
+    """
+    order_service = request.app.state.order_service
+    if not order_service:
+        raise HTTPException(status_code=500, detail="OrderService not set")
+
+    occupied_info = order_service.occupied_info
+
+    return {
+        "냉동 매대": {
+            "robot": {
+                "occupied": occupied_info["냉동"]["robot"][0],
+                "remaining_time": occupied_info["냉동"]["robot"][1]
+            },
+            "person": {
+                "occupied": occupied_info["냉동"]["person"][0],
+                "remaining_time": occupied_info["냉동"]["person"][1]
+            }
+        },
+        "신선 매대": {
+            "robot": {
+                "occupied": occupied_info["신선"]["robot"][0],
+                "remaining_time": occupied_info["신선"]["robot"][1]
+            },
+            "person": {
+                "occupied": occupied_info["신선"]["person"][0],
+                "remaining_time": occupied_info["신선"]["person"][1]
+            }
+        },
+        "일반 매대": {
+            "robot": {
+                "occupied": occupied_info["일반"]["robot"][0],
+                "remaining_time": occupied_info["일반"]["robot"][1]
+            },
+            "person": {
+                "occupied": occupied_info["일반"]["person"][0],
+                "remaining_time": occupied_info["일반"]["person"][1]
+            }
+        }
     }

@@ -115,6 +115,8 @@ class OrderService:
             robot.path_queue = []
             robot.remaining_items = {}
             robot.carrying_items = {}
+            robot.current_station = "출발지"       # 기본값 복귀
+            robot.current_activity = "대기중"     # 완전히 대기 상태로 복귀
 
             if self.order_queue:
                 next_order = self.order_queue.pop(0)
@@ -131,6 +133,7 @@ class OrderService:
         def process_stations():
             if not robot.path_queue:
                 # 모두 방문하면 목적지 -> 출발지
+                robot.current_activity = f"{robot.current_station}에서 목적지로 이동중"
                 client.navigate_to_station("목적지", {}, done_cb=_on_destination_done)
                 return
 
@@ -173,6 +176,7 @@ class OrderService:
                     return
 
             # (3) 점유가 아니면, 이동 "시작" 시점에 매대를 점유 상태로 만든다
+            robot.current_activity = f"{robot.current_station}에서 {st}로 이동중"
             station_products = order.station_items_map.get(st, {})
             total_item_count = sum(station_products.values())
             remain_time = total_item_count * ITEM_TIME_FACTOR
@@ -189,6 +193,8 @@ class OrderService:
                 finalize_robot()
                 return
 
+            robot.current_activity = f"{station}에서 대기중"
+
             # 로봇이 station에 도착한 상태
             manip_client = self.manipulator_clients.get(station)
             if not manip_client:
@@ -196,7 +202,9 @@ class OrderService:
                 self.update_robot_occupied_info(station, False, 0)
                 finalize_robot()
                 return
-
+            
+            # 로봇팔 작업 시작 전 상태값도 업데이트
+            robot.current_activity = f"{station} 매대에서 물건 담기 작업중"
             station_products = order.station_items_map.get(station, {})
             manip_client.manipulate_station(
                 station,
@@ -213,6 +221,7 @@ class OrderService:
                 return
 
             # 로봇 상태 갱신
+            robot.current_activity = f"{station}에서 대기중"
             for prod_id, qty in order.station_items_map[station].items():
                 if prod_id in robot.remaining_items:
                     robot.remaining_items[prod_id] -= qty
@@ -238,12 +247,16 @@ class OrderService:
                 # except Exception as e:
                 #     print("전자석 붙이기중 예외 발생", e)
                 # 목적지 방문 후 -> 출발지로 이동
+                robot.current_station = "목적지"
+                robot.current_activity = "목적지에서 출발지로 이동중"
                 client.navigate_to_station("출발지", {}, done_cb=_on_return_home_done)
             else:
                 finalize_robot()
 
         def _on_return_home_done(success: bool):
             if success:
+                robot.current_station = "출발지"
+                robot.current_activity = "대기중"
                 try:
                     sql = """
                     UPDATE orders
