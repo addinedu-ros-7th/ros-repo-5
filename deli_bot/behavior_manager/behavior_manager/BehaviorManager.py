@@ -3,10 +3,11 @@ from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.action import ActionServer
 
+from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
-from traffic_manager_msgs.srv import GetTargetPose
+from traffic_manager_msgs.action import SetTargetPose
 
-from traffic_manager.utils import format_pickup_tasks_log, format_station_waypoints_log
+from behavior_manager.utils import format_target_pose_log, format_feedback_log, format_pose_log
 
 import asyncio
 
@@ -18,7 +19,7 @@ Nav2의 주행이 완료되면 task_server가 완료 처리.
 
 
 < Test Command >
-$ ros2 service call /delibot_1/get_target_pose traffic_manager_msgs/srv/GetTargetPose "{target_pose: {station: 'station_a', pose: {header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 2.0, z: 0.0}, orientation: {z: 0.0, w: 1.0}}}}}"
+$ ros2 service call /delibot_1/set_target_pose traffic_manager_msgs/srv/SetTargetPose "{target_pose: {station: 'station_a', pose: {header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 2.0, z: 0.0}, orientation: {z: 0.0, w: 1.0}}}}}"
 
 """
 
@@ -27,87 +28,91 @@ class BehaviorManager(Node):
         self.robot_id = robot_id
         super().__init__(f"{self.robot_id}_behavior_manager")
 
-        # Initialize service server
-        self.pose_service = self.create_service(
-            GetTargetPose, f"/{self.robot_id}/get_target_pose", self.handle_target_pose
-        )
-        self.get_logger().info(f"/{self.robot_id}/get_target_pose Service is ready!")
+        # Initialize action server
+        self.target_pose_server = ActionServer(
+            self, SetTargetPose, f"{self.robot_id}/set_target_pose", self.handle_target_pose)
+        self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is ready!")
 
-        # Initialize action client
+        # Initialize action client for Nav2
         self.nav_client = ActionClient(
             self, NavigateToPose, '/navigate_to_pose')
-        self.get_logger().info(f"/navigate_to_pose Action is ready!")
+        self.get_logger().info(f"/navigate_to_pose Action client is ready!")
 
 
-    async def handle_target_pose(self, request, response):
+    async def handle_target_pose(self, goal_handle):
         """
-        Receive target pose from pose service
+        Receive target pose from TaskServer.
+        goal: target_pose
+        response:
+        feedback:
         """
-        target_pose = request.target_pose
-        if target_pose.pose is None:
-            self.get_logger().error(f"/{self.robot_id}/get_target_pose Received empty pose, cannot send goal.")
-            response.success = False
-            return response
-        
-        goal_pose = target_pose.pose
-        result = await self.send_goal(goal_pose)
-        response.success = result
-        self.get_logger().info(f"/{self.robot_id}/get_target_pose Response sent: {response.success}")
-        return response
+        # Receive goal from TaskServer
+        # self.goal_handle = goal_handle
+        target_pose = goal_handle.request.target_pose
+        pose_log_message = format_target_pose_log(target_pose)
+        self.get_logger().info(f"{self.robot_id}/set_target_pose Goal received: \n{pose_log_message}")
 
-
-    async def send_goal(self, goal_pose):
         """
-        Send a target pose to Nav2 as a action goal
-
-        result
-        0: success
-        1: failure
-        2: canceled
+        Send goal pose to Nav2.
+        goal: goal_pose
+        response:
+        feedback:
         """
-        # Initialize action goal message
-        goal_msg = NavigateToPose.Goal()
-        goal_msg.pose = goal_pose
-        self.get_logger().info(f"/navigate_to_pose Sending goal: \n{goal_msg.pose}")
-
         # Wait for the service server to be available
-        await asyncio.sleep(0)
-        if not self.nav_client.wait_for_server():
-            self.get_logger().error("/navigate_to_pose Action server is not available!")
-            return False
-        self.get_logger().info("/navigate_to_pose Action is available!")
+        while not self.nav_client.wait_for_server(timeout_sec=1.0):
+            self.get_logger().info(f'/navigate_to_pose Waiting for server...')
+        self.get_logger().info(f"/navigate_to_pose Service is available!")
+        
+        # Initialize goal message
+        goal_msg = NavigateToPose.Goal()
+        goal_msg.pose = PoseStamped()
+        goal_msg.pose.header.frame_id = target_pose.header.frame_id
+        goal_msg.pose.pose = target_pose.pose
+        
+        log_message = format_pose_log(goal_msg.pose)
+        self.get_logger().info(f"/navigate_to_pose Sending goal: \n{log_message}")
 
-        # Send action goal to Nav2
-        send_goal_future = self.nav_client.send_goal_async(goal_msg, feedback_callback=self.feedback_callback)
-        goal_handle = await send_goal_future
+        # Send goal to Nav2 and receive feedback 
+        # and return it to TaskServer 
+        nav_goal_handle = await self.nav_client.send_goal_async(
+            goal_msg, feedback_callback=lambda nav_fb: self.feedback_callback(goal_handle, nav_fb))
+
+        if not nav_goal_handle.accepted:
+            self.get_logger().warn("/navigate_to_pose Goal was rejected.")
+            goal_handle.abort()
+            return SetTargetPose.Result(success=False)
+
+        self.get_logger().info("/navigate_to_pose Goal accepted by Nav2. Waiting for result...")
         
-        if not goal_handle.accepted:
-            self.get_logger().warn("/navigate_to_pose Goal was rejected by Nav2.")
-            return False
-        
-        # Receive action result from Nav2
-        self.get_logger().info("/navigate_to_pose Goal accepted! Waiting for result...")
-        result_future = goal_handle.get_result_async()
+        # Receive result from Nav2
+        result_future = nav_goal_handle.get_result_async()
         result = await result_future
-        
-        # Return result
-        if result.result == 0:
+
+        # Return result to TaskServer
+        if result.status == 0:
             self.get_logger().info("/navigate_to_pose Goal reached successfully!")
-            return True
+            goal_handle.succeed()
+            return SetTargetPose.Result(success=True)
         else:
             self.get_logger().warn("/navigate_to_pose Failed to reach the goal!")
-            return False
+            goal_handle.abort()
+            return SetTargetPose.Result(success=False)
 
 
-    def feedback_callback(self, feedback_msg):
+    def feedback_callback(self, goal_handle, feedback_msg):
         """
-        Logging feedback form Nav2
+        Send feedback to TaskServer, which is received from Nav2.
+        feedback: current_pose, distance_remaining
         """
-        self.get_logger().info(
-            f"Navigation Progress: \n"
-            f"X={feedback_msg.feedback.current_pose.pose.position.x}, "
-            f"Y={feedback_msg.feedback.current_pose.pose.position.y}"
-        )
+        # Initialize feedback
+        feedback = SetTargetPose.Feedback()
+        feedback.current_pose = feedback_msg.feedback.current_pose
+        feedback.distance_remaining = feedback_msg.feedback.distance_remaining
+
+        # Send feedback to TaskServer
+        goal_handle.publish_feedback(feedback)
+        log_message = format_feedback_log(feedback.current_pose, feedback.distance_remaining)
+        self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
 
 
 def main(args=None):
