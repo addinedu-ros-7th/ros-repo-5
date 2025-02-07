@@ -5,7 +5,8 @@ from rclpy.executors import MultiThreadedExecutor
 
 from geometry_msgs.msg import PoseStamped
 from task_manager_msgs.action import DispatchDeliveryTask
-from traffic_manager_msgs.action import GetStationWaypoints, SetTargetPose
+from traffic_manager_msgs.srv import GetStationWaypoints
+from traffic_manager_msgs.action import SetTargetPose
 
 from behavior_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log
 
@@ -41,6 +42,7 @@ float32 distance_remaining
 
 $ ros2 action send_goal /delibot_1/dispatch_delivery_task task_manager_msgs/action/DispatchDeliveryTask "{pickups: [{station: 'fresh_station', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}]}" --feedback
 
+
 ================================================================ """
 
 
@@ -60,7 +62,7 @@ class TaskServer(Node):
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
 
         # Initialize action client
-        self.target_pose_client = self.ActionClient(
+        self.target_pose_client = ActionClient(
             self, SetTargetPose, f"{self.robot_id}/set_target_pose")
         self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is available!")
 
@@ -74,9 +76,9 @@ class TaskServer(Node):
         """
         # Receive goal from TaskManager
         self.goal_handle = goal_handle
-        pickups = goal_handle.goal.pickups
-        goal_log_message = format_pickup_tasks_log(pickups)
-        self.get_logger().info(f"/{self.robot_id}_dispatch_delivery_task Goal received: \n{goal_log_message}")
+        pickups = goal_handle.request.pickups
+        task_goal_log_message = format_pickup_tasks_log(pickups)
+        self.get_logger().info(f"/{self.robot_id}_dispatch_delivery_task Goal received: \n{task_goal_log_message}")
 
         # Send request to TrafficManager and wait response
         wp_result = await self.request_station_waypoints(pickups)
@@ -87,12 +89,14 @@ class TaskServer(Node):
             return result
 
         # Receive response from TrafficManager 
-        target_pose = wp_result.station_waypoints[0]
+        target_pose = wp_result.station_waypoints[0].waypoint
         goal_msg = SetTargetPose.Goal()
-        goal_msg.pose = PoseStamped()
-        goal_msg.pose.header.frame_id = target_pose.header.frame_id
-        goal_msg.pose.pose = target_pose.pose
-        self.get_logger().info(f"/set_target_pose Sending goal: \n{goal_msg.pose}")
+        goal_msg.target_pose = PoseStamped()
+        goal_msg.target_pose.header.frame_id = target_pose.header.frame_id
+        goal_msg.target_pose.pose = target_pose.pose
+
+        pose_goal_log_message = format_pose_log(goal_msg.target_pose)
+        self.get_logger().info(f"/set_target_pose Sending goal: \n{pose_goal_log_message}")
 
         # Send goal to BehaviorManager and receive feedback 
         # and return it to TaskServer 
@@ -107,7 +111,7 @@ class TaskServer(Node):
         self.get_logger().info("/set_target_pose Goal accepted by BehaviorManager. Waiting for result...")
 
         # Receive result from BehaviorManager
-        result_future = self.target_pose_client.get_result_async()
+        result_future = tp_goal_handle.get_result_async()
         result = await result_future
 
         # Return result fo TaskManager
@@ -170,7 +174,7 @@ def main(args=None):
     executor.add_node(node)
 
     try:
-        executor.spin(node)
+        executor.spin()
 
     except KeyboardInterrupt:
         pass
