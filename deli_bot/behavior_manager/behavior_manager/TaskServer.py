@@ -8,7 +8,7 @@ from task_manager_msgs.action import DispatchDeliveryTask
 from traffic_manager_msgs.srv import GetStationWaypoints
 from traffic_manager_msgs.action import SetTargetPose
 
-from behavior_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log
+from behavior_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log, format_feedback_log
 
 import asyncio
 import time
@@ -158,12 +158,12 @@ class TaskServer(Node):
 
         # Initialize feedback
         feedback = DispatchDeliveryTask.Feedback()
-        feedback.current_pose = feedback_msg.current_pose
-        feedback.distance_remaining = feedback_msg.distance_remaining
+        feedback.current_pose = feedback_msg.feedback.current_pose
+        feedback.distance_remaining = feedback_msg.feedback.distance_remaining
 
         # Send feedback to TaskManager
         goal_handle.publish_feedback(feedback)
-        log_message = format_pose_log(feedback)
+        log_message = format_feedback_log(feedback.current_pose, feedback.distance_remaining)
         self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
 
 def main(args=None):

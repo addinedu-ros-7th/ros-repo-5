@@ -1,4 +1,5 @@
-general_station:
+# general_station:
+"일반":
   pose:
     x: 1.7
     y: -0.77
@@ -9,7 +10,8 @@ general_station:
       z: 0.71
       w: 0.704
 
-fresh_station:
+# "fresh_station":
+"신선":
   pose:
     x: 1.77
     y: 0.38
@@ -20,7 +22,8 @@ fresh_station:
       z: 1.0
       w: 0.0
 
-frozen_station:
+# frozen_station:
+"냉동":
   pose:
     x: 1.73
     y: -0.8
@@ -31,7 +34,8 @@ frozen_station:
       z: 0.705
       w: 0.708
 
-dropoff_station:
+# dropoff_station:
+"목적지":
   pose:
     x: -0.405
     y: -0.737
@@ -42,7 +46,8 @@ dropoff_station:
       z: 0.0
       w: 1.0
 
-charging_station_1:
+# charging_station_1:
+"출발지1":
   pose:
     x: -0.09
     y: -0.403
@@ -53,7 +58,8 @@ charging_station_1:
       z: 0.0
       w: 1.0
 
-charging_station_2:
+# charging_station_2:
+"출발지2":
   pose:
     x: -0.06
     y: 0.0
@@ -64,7 +70,8 @@ charging_station_2:
       z: 0.0
       w: 1.0
 
-charging_station_3:
+# charging_station_3:
+"출발지3":
   pose:
     x: 0.0
     y: 0.0
