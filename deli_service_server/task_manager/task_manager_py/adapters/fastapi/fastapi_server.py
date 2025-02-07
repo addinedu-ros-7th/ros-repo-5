@@ -342,7 +342,8 @@ def get_robots_status(request: Request) -> dict:
 
     results = []
     for r_id, robot_obj in order_service.robots.items():
-        status_str = "주문처리중" if robot_obj.busy else "대기중"
+        status_str = robot_obj.current_activity
+        #status_str = "주문처리중" if robot_obj.busy else "대기중"
         data = {
             "robotId": robot_obj.robot_id,
             "name": robot_obj.name,

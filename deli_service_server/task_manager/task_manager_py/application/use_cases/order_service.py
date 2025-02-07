@@ -14,9 +14,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 # 아이템 1개당 20초
 ITEM_TIME_FACTOR = 20
+
 
 class OrderService:
     def __init__(self, robots, occupied_info, db):
@@ -88,6 +88,10 @@ class OrderService:
         robot.path_queue = path
         robot.remaining_items = dict(order.cart)
         robot.carrying_items = {}
+        # 필요한 경우 current_station 초기화 (이미 기본값이 '출발지'일 수 있음)
+        robot.current_station = "출발지"
+        # 작업 시작 전 activity
+        robot.current_activity = "주문 처리 시작"
 
         # try :
         #     # 전자석 붙이기
@@ -115,6 +119,8 @@ class OrderService:
             robot.path_queue = []
             robot.remaining_items = {}
             robot.carrying_items = {}
+            robot.current_station = "출발지"
+            robot.current_activity = "대기중"
 
             if self.order_queue:
                 next_order = self.order_queue.pop(0)
@@ -129,20 +135,20 @@ class OrderService:
             return (r_occ or p_occ), max(r_time, p_time)
 
         def process_stations():
+            """
+            스테이션별로 순차 이동. path_queue에 남아있다면 계속 스테이션으로 이동함.
+            모든 스테이션 방문 후에는 '목적지' -> '출발지' 로 이동.
+            """
             if not robot.path_queue:
                 # 모두 방문하면 목적지 -> 출발지
+                robot.current_activity = f"{robot.current_station}에서 목적지로 이동중"
                 client.navigate_to_station("목적지", {}, done_cb=_on_destination_done)
                 return
 
             st = robot.path_queue[0]
 
-            # (1) 현재 매대가 이미 점유 중인지 확인
-            r_occ, r_time = self.occupied_info[st]["robot"]
-            p_occ, p_time = self.occupied_info[st]["person"]
-
-            total_occ = (r_occ or p_occ)
-            total_remain = max(r_time, p_time)
-
+            # 매대 점유 여부 확인
+            total_occ, total_remain = is_station_occupied(st)
             if total_occ or total_remain > 0:
                 # 점유 중 -> GA 재계획
                 leftover_stations = robot.path_queue[:]
@@ -158,21 +164,17 @@ class OrderService:
                 #     '새 경로의 첫 번째 스테이션이 여전히 점유 중'이면 2초 대기 후 다시 재계산
                 if (new_path == leftover_stations) or \
                    (len(new_path) > 0 and is_station_occupied(new_path[0])[0]):
-                    # 잠시 대기 후 다시 시도 
                     print("@@@@ time sleeping 2second")
                     time.sleep(2)
-                    # 사람이 점유 시간을 줄이도록
                     self.reduce_occupied_time()
-                    # 다시 process_stations() 시도
                     process_stations()
                     return
                 else:
-                    # 경로 갱신 후 재귀 호출
                     robot.path_queue = new_path
                     process_stations()
                     return
 
-            # (3) 점유가 아니면, 이동 "시작" 시점에 매대를 점유 상태로 만든다
+            # 여기까지 왔다면 점유가 아니므로 이동 시작
             station_products = order.station_items_map.get(st, {})
             total_item_count = sum(station_products.values())
             remain_time = total_item_count * ITEM_TIME_FACTOR
@@ -181,7 +183,9 @@ class OrderService:
             self.update_robot_occupied_info(st, True, remain_time)
             print(f"[OrderService] Robot {robot.robot_id} => moving to {st}, occupant_time={remain_time}s")
 
-            # 실제 이동 (주행 액션 호출) - payload에 station_products 전달
+            # 이동을 시작하기 전에 activity 업데이트
+            robot.current_activity = f"{robot.current_station}에서 {st}로 이동중"
+            # 실제 이동 (주행 액션 호출)
             client.navigate_to_station(st, station_products, done_cb=lambda ok: _on_navigate_done(ok, st))
 
         def _on_navigate_done(success: bool, station: str):
@@ -189,7 +193,11 @@ class OrderService:
                 finalize_robot()
                 return
 
-            # 로봇이 station에 도착한 상태
+            # 로봇이 station에 도착했으므로 current_station 갱신
+            robot.current_station = station
+            robot.current_activity = f"{station} 도착(대기중)"
+
+            # 로봇팔(매니퓰레이터) 유무 확인
             manip_client = self.manipulator_clients.get(station)
             if not manip_client:
                 # 로봇팔이 없는 매대라면 -> 곧바로 점유 해제 + 종료
@@ -197,6 +205,8 @@ class OrderService:
                 finalize_robot()
                 return
 
+            # 로봇팔 작업 시작 전 상태 업데이트
+            robot.current_activity = f"{station} 매대에서 물건 담기 작업중"
             station_products = order.station_items_map.get(station, {})
             manip_client.manipulate_station(
                 station,
@@ -212,7 +222,7 @@ class OrderService:
                 finalize_robot()
                 return
 
-            # 로봇 상태 갱신
+            # 로봇 상태 갱신 (적재 아이템)
             for prod_id, qty in order.station_items_map[station].items():
                 if prod_id in robot.remaining_items:
                     robot.remaining_items[prod_id] -= qty
@@ -225,25 +235,35 @@ class OrderService:
             if robot.path_queue and robot.path_queue[0] == station:
                 robot.path_queue.pop(0)
 
+            # 매대 조작 완료 후 대기중 상태로 갱신
+            robot.current_activity = f"{station}에서 대기중"
             # 다음 스테이션 진행
             process_stations()
 
         def _on_destination_done(success: bool):
             if success:
+                # 목적지 도착 => current_station 갱신
+                robot.current_station = "목적지"
+                robot.current_activity = "목적지 도착(대기중)"
+
                 # # 전자석 떼기
-                # try :
-                #     # 전자석 붙이기
-                #     data = pack ("ii",25, False)
+                # try:
+                #     data = pack("ii", 25, False)
                 #     self.sock.send(data)
                 # except Exception as e:
                 #     print("전자석 붙이기중 예외 발생", e)
+
                 # 목적지 방문 후 -> 출발지로 이동
-                client.navigate_to_station("출발지", {}, done_cb=_on_return_home_done)
+                robot.current_activity = f"{robot.current_station}에서 출발지로 이동중"
+                client.navigate_to_station(f"{robot.robot_id}출발지", {}, done_cb=_on_return_home_done)
             else:
                 finalize_robot()
 
         def _on_return_home_done(success: bool):
             if success:
+                robot.current_station = "출발지"
+                robot.current_activity = "출발지 도착(대기중)"
+
                 try:
                     sql = """
                     UPDATE orders
@@ -258,6 +278,7 @@ class OrderService:
             finalize_robot()
 
         # 프로세스 시작
+        robot.current_activity = "주문처리 시작"
         process_stations()
 
     def update_robot_occupied_info(self, station, occupied, remain_time):
@@ -282,7 +303,6 @@ class OrderService:
                     occupant_dict["robot"] = (False, 0)
                 else:
                     occupant_dict["robot"] = (True, new_t)
-                    #print(self.occupied_info)
 
             # 사람 점유
             p_occ, p_time = occupant_dict["person"]
