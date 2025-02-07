@@ -5,7 +5,7 @@ from rclpy.executors import MultiThreadedExecutor
 
 from geometry_msgs.msg import PoseStamped
 from task_manager_msgs.action import DispatchDeliveryTask
-from traffic_manager_msgs.srv import GetStationWaypoints, SetTargetPose
+from traffic_manager_msgs.action import GetStationWaypoints, SetTargetPose
 
 from behavior_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log
 
