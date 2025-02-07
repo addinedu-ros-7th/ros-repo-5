@@ -11,15 +11,20 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(task_manager_msgs REQUIRED)
 
+set(action_files
+  "action/SetTargetPose.action"
+)
 set(srv_files
   "srv/GetStationWaypoints.srv"
 )
 
 set(msg_files
   "msg/StationWaypoint.msg"
+  "msg/TargetPose.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  ${action_files}
   ${srv_files}
   ${msg_files}
   DEPENDENCIES builtin_interfaces geometry_msgs task_manager_msgs

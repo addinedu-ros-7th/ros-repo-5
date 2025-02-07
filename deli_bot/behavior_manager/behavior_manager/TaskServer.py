@@ -1,14 +1,16 @@
 import rclpy
 from rclpy.node import Node
-from rclpy.action import ActionServer
+from rclpy.action import ActionServer, ActionClient
+from rclpy.executors import MultiThreadedExecutor
 
 from geometry_msgs.msg import PoseStamped
 from task_manager_msgs.action import DispatchDeliveryTask
-from traffic_manager_msgs.srv import GetStationWaypoints
+from traffic_manager_msgs.srv import GetStationWaypoints, SetTargetPose
 
-from behavior_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log, format_feedback_log
+from behavior_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log
 
 import asyncio
+import time
 
 """ ================================================================
 
@@ -47,167 +49,129 @@ class TaskServer(Node):
         super().__init__(f"{robot_id}_task_server")
         self.robot_id = robot_id
 
-        # Initialize action Server
-        self.task_server = ActionServer(
-            self, DispatchDeliveryTask, f"{self.robot_id}/dispatch_delivery_task", self.handle_dispatch_task
-        )
-        self.get_logger().info(f"/{self.robot_id}/dispatch_delivery_task Service is ready!")
+        # Initialize action server
+        self.delivery_task_server = ActionServer(
+            self, DispatchDeliveryTask, f"{self.robot_id}/dispatch_delivery_task", self.handle_dispatch_task)
+        self.get_logger().info(f"/{self.robot_id}/dispatch_delivery_task Action is ready!")
 
         # Initialize service client
         self.waypoint_client = self.create_client(
             GetStationWaypoints, f"{self.robot_id}/get_station_waypoints")
+        self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
 
-        # Initialize topic publisher=========================
-        self.pose_publisher = self.create_publisher(
-            PoseStamped, "goal_pose", 10
-        )
-        self.get_logger().info(f"/goal_pose Topic publisher is ready!")
-
+        # Initialize action client
+        self.target_pose_client = self.ActionClient(
+            self, SetTargetPose, f"{self.robot_id}/set_target_pose")
+        self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is available!")
 
 
     async def handle_dispatch_task(self, goal_handle):
         """
         Handle incoming dispatch delivery task requests.
+        goal: pickups
+        result: success
+        feedback: current_pose, distance_remaining
         """
+        # Receive goal from TaskManager
         self.goal_handle = goal_handle
-        pickups = goal_handle.request.pickups
+        pickups = goal_handle.goal.pickups
         goal_log_message = format_pickup_tasks_log(pickups)
         self.get_logger().info(f"/{self.robot_id}_dispatch_delivery_task Goal received: \n{goal_log_message}")
 
+        # Send request to TrafficManager and wait response
         wp_result = await self.request_station_waypoints(pickups)
         if not wp_result:
             result = self.send_result(
                 goal_handle, success=False, error_code=1, error_msg="Failed to get station waypoints."
             )
             return result
+
+        # Receive response from TrafficManager 
+        target_pose = wp_result.station_waypoints[0]
+        goal_msg = SetTargetPose.Goal()
+        goal_msg.pose = PoseStamped()
+        goal_msg.pose.header.frame_id = target_pose.header.frame_id
+        goal_msg.pose.pose = target_pose.pose
+        self.get_logger().info(f"/set_target_pose Sending goal: \n{goal_msg.pose}")
+
+        # Send goal to BehaviorManager and receive feedback 
+        # and return it to TaskServer 
+        tp_goal_handle = await self.target_pose_client.send_goal_async(
+            goal_msg, feedback_callback=lambda fb: self.feedback_callback(goal_handle, fb))
         
-        self.publish_goal_pose(wp_result.station_waypoints[0])
+        if not tp_goal_handle.accepted:
+            self.get_logger().warn("/set_target_pose Goal was rejected.")
+            goal_handle.abort()
+            return SetTargetPose.Result(success=False)
+        
+        self.get_logger().info("/set_target_pose Goal accepted by BehaviorManager. Waiting for result...")
 
-        current_pose, distance_remaining = self.handle_pose()
-        await self.send_feedback(current_pose, distance_remaining)
+        # Receive result from BehaviorManager
+        result_future = self.target_pose_client.get_result_async()
+        result = await result_future
 
-        result = self.send_result(
-            goal_handle, success=True, error_code=0, error_msg="All tasks completed successfully."
-        )
-        return result
+        # Return result fo TaskManager
+        if result.status == 0:
+            self.get_logger().info("/navigate_to_pose Goal reached successfully!")
+            goal_handle.succeed()
+            return SetTargetPose.Result(success=True)
+        else:
+            self.get_logger().warn("/navigate_to_pose Failed to reach the goal!")
+            goal_handle.abort()
+            return SetTargetPose.Result(success=False)
 
 
     async def request_station_waypoints(self, pickups):
         """
-        Request waypoints for pickup stations from the Traffic Manager.
+        Request: pickups
+        Response: station_waypoints
         """
         # Wait for the service server to be available
         while not self.waypoint_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(f'/{self.robot_id}/get_station_waypoints Waiting for service...')
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
-
+        
+        # Initialize request
         request = GetStationWaypoints.Request()
         request.pickups = pickups
         future = self.waypoint_client.call_async(request)
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Request sending...")
 
         result = await future
-
         if result is None or not result.station_waypoints:
             self.get_logger().error(f"/{self.robot_id}/get_station_waypoints Failed to receive waypoints.")
             return None
         
         log_message = format_station_waypoints_log(result.station_waypoints)
         self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
-
         return result
 
-    def publish_goal_pose(self, station_waypoint):
+    def feedback_callback(self, goal_handle, feedback_msg):
         """
-        Publish goal pose based on the received waypoint.
+        Send feedback to TaskManager, which is received from BehaviorManager.
+        feedback: current_pose, distance_remaining
         """
-        waypoint = station_waypoint.waypoint
 
-        position = waypoint.pose.position
-        orientation = waypoint.pose.orientation
+        # Initialize feedback
+        feedback = DispatchDeliveryTask.Feedback()
+        feedback.current_pose = feedback_msg.current_pose
+        feedback.distance_remaining = feedback_msg.distance_remaining
 
-        pose_msg = PoseStamped()
-        pose_msg.header.stamp = self.get_clock().now().to_msg()
-        pose_msg.header.frame_id = "map"
-
-        pose_msg.pose.position.x = position.x
-        pose_msg.pose.position.y = position.y
-        pose_msg.pose.position.z = position.z
-        pose_msg.pose.orientation = orientation
-
-        self.pose_publisher.publish(pose_msg)
-        log_message = format_pose_log(pose_msg)
-        self.get_logger().info(f"Published /goal_pose: \n{log_message}")
-
-
-    async def send_feedback(self, current_pose, distance_remaining):
-        """
-        Send action feedbacks.
-        """
-        if hasattr(self, "goal_handle") and self.goal_handle:
-            feedback_msg = DispatchDeliveryTask.Feedback()
-            feedback_msg.current_pose = current_pose    # /amcl_pose or /tf
-            feedback_msg.distance_remaining = distance_remaining  # Update with real distance
-            self.goal_handle.publish_feedback(feedback_msg)
-
-            log_message = format_feedback_log(current_pose, distance_remaining)
-            self.get_logger().info(f"Feedback sent: \n{log_message}")
-        else:
-            self.get_logger().error("No active goal handle to send feedback.")
-
-    
-    def send_result(self, goal_handle, success, error_code=0, error_msg=""):
-        """
-        Send the final result of the action task.
-
-        Args:
-            goal_handle (GoalHandle): Handle for the current goal.
-            success (bool): Whether the task was successful.
-            error_code (int, optional): Error code (0=success, 1=waypoint failure, 2=navigation failure). Defaults to 0.
-            error_msg (str, optional): Error message. Defaults to "".
-        
-        Returns:
-            DispatchDeliveryTask.Result: The final result of the task execution.
-        """
-        result = DispatchDeliveryTask.Result()
-        result.success = success
-        result.error_code = error_code
-        result.error_msg = error_msg
-
-        if goal_handle:
-            if success:
-                goal_handle.succeed()
-            else:
-                goal_handle.abort()
-
-        log_message = f"Task Result: \n- Success: {success}, Error Code: {error_code}, Message: {error_msg}"
-
-        if success:
-            self.get_logger().info(f"Task completed successfully: \n{log_message}")
-        else:
-            self.get_logger().error(f"Task failed: \n{log_message}")
-
-        return result
-
-
-    # TODO: Implement server in NavManager 
-    def handle_pose(self):
-        # 현재 PoseStamped 정보 생성
-        pose = PoseStamped()
-        pose.pose.position.x = 1.0
-        pose.pose.position.y = 2.0
-        pose.pose.position.z = 0.0
-
-        distance_remaining = 15.0
-        return pose, distance_remaining
-
+        # Send feedback to TaskManager
+        goal_handle.publish_feedback(feedback)
+        log_message = format_pose_log(feedback)
+        self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
 
 def main(args=None):
     rclpy.init(args=args)
     node = TaskServer("delibot_1")
 
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+
     try:
-        rclpy.spin(node)
+        executor.spin(node)
+
     except KeyboardInterrupt:
         pass
 
