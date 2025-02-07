@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1422</width>
-    <height>888</height>
+    <width>1195</width>
+    <height>887</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,12 +18,12 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1421</width>
+     <width>1191</width>
      <height>881</height>
     </rect>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>5</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
@@ -68,52 +68,35 @@
       <string/>
      </property>
     </widget>
-    <widget class="QGroupBox" name="groupBox_3">
+    <widget class="QLabel" name="map">
      <property name="geometry">
       <rect>
-       <x>890</x>
-       <y>310</y>
-       <width>491</width>
-       <height>241</height>
+       <x>70</x>
+       <y>70</y>
+       <width>1000</width>
+       <height>710</height>
       </rect>
      </property>
-     <property name="title">
+     <property name="text">
       <string/>
      </property>
-     <widget class="QLabel" name="robot_image3">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>50</y>
-        <width>161</width>
-        <height>141</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
-     <widget class="QLabel" name="robot_state3">
-      <property name="geometry">
-       <rect>
-        <x>240</x>
-        <y>0</y>
-        <width>251</width>
-        <height>241</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
     </widget>
+    <zorder>map</zorder>
+    <zorder>robot_image5</zorder>
+    <zorder>robot_image6</zorder>
+    <zorder>robot_image7</zorder>
+   </widget>
+   <widget class="QWidget" name="tab_2">
+    <attribute name="title">
+     <string>로봇 상태</string>
+    </attribute>
     <widget class="QGroupBox" name="groupBox">
      <property name="geometry">
       <rect>
-       <x>890</x>
-       <y>30</y>
+       <x>50</x>
+       <y>60</y>
        <width>491</width>
-       <height>251</height>
+       <height>341</height>
       </rect>
      </property>
      <property name="title">
@@ -136,48 +119,9 @@
       <property name="geometry">
        <rect>
         <x>230</x>
-        <y>0</y>
-        <width>261</width>
-        <height>251</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
-    </widget>
-    <widget class="QGroupBox" name="groupBox_4">
-     <property name="geometry">
-      <rect>
-       <x>370</x>
-       <y>580</y>
-       <width>491</width>
-       <height>241</height>
-      </rect>
-     </property>
-     <property name="title">
-      <string/>
-     </property>
-     <widget class="QLabel" name="robot_image4">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>60</y>
-        <width>161</width>
-        <height>141</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
-     <widget class="QLabel" name="robot_state4">
-      <property name="geometry">
-       <rect>
-        <x>240</x>
-        <y>10</y>
+        <y>40</y>
         <width>221</width>
-        <height>231</height>
+        <height>271</height>
        </rect>
       </property>
       <property name="text">
@@ -188,10 +132,10 @@
     <widget class="QGroupBox" name="groupBox_2">
      <property name="geometry">
       <rect>
-       <x>890</x>
-       <y>580</y>
+       <x>610</x>
+       <y>60</y>
        <width>491</width>
-       <height>251</height>
+       <height>341</height>
       </rect>
      </property>
      <property name="title">
@@ -201,7 +145,7 @@
       <property name="geometry">
        <rect>
         <x>20</x>
-        <y>50</y>
+        <y>90</y>
         <width>161</width>
         <height>141</height>
        </rect>
@@ -213,10 +157,10 @@
      <widget class="QLabel" name="robot_state2">
       <property name="geometry">
        <rect>
-        <x>240</x>
-        <y>0</y>
-        <width>251</width>
-        <height>251</height>
+        <x>230</x>
+        <y>40</y>
+        <width>221</width>
+        <height>271</height>
        </rect>
       </property>
       <property name="text">
@@ -224,25 +168,38 @@
       </property>
      </widget>
     </widget>
-    <widget class="QGroupBox" name="groupBox_10">
+    <widget class="QGroupBox" name="groupBox_3">
      <property name="geometry">
       <rect>
-       <x>0</x>
-       <y>0</y>
-       <width>760</width>
-       <height>540</height>
+       <x>50</x>
+       <y>460</y>
+       <width>491</width>
+       <height>341</height>
       </rect>
      </property>
      <property name="title">
       <string/>
      </property>
-     <widget class="QLabel" name="map">
+     <widget class="QLabel" name="robot_image3">
       <property name="geometry">
        <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>760</width>
-        <height>540</height>
+        <x>20</x>
+        <y>90</y>
+        <width>161</width>
+        <height>141</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+     <widget class="QLabel" name="robot_state3">
+      <property name="geometry">
+       <rect>
+        <x>230</x>
+        <y>40</y>
+        <width>221</width>
+        <height>271</height>
        </rect>
       </property>
       <property name="text">
@@ -250,34 +207,45 @@
       </property>
      </widget>
     </widget>
-    <widget class="QTableView" name="tableView">
+    <widget class="QGroupBox" name="groupBox_4">
      <property name="geometry">
       <rect>
-       <x>20</x>
-       <y>620</y>
-       <width>321</width>
-       <height>201</height>
+       <x>610</x>
+       <y>460</y>
+       <width>491</width>
+       <height>341</height>
       </rect>
      </property>
-    </widget>
-    <widget class="QLabel" name="label_4">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-       <y>590</y>
-       <width>151</width>
-       <height>19</height>
-      </rect>
+     <property name="title">
+      <string/>
      </property>
-     <property name="text">
-      <string>현재 진행중인 주문 목록</string>
-     </property>
+     <widget class="QLabel" name="robot_image4">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>90</y>
+        <width>161</width>
+        <height>141</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+     <widget class="QLabel" name="robot_state4">
+      <property name="geometry">
+       <rect>
+        <x>230</x>
+        <y>40</y>
+        <width>221</width>
+        <height>271</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
     </widget>
-   </widget>
-   <widget class="QWidget" name="tab_2">
-    <attribute name="title">
-     <string>로봇 상태</string>
-    </attribute>
    </widget>
    <widget class="QWidget" name="tab_3">
     <attribute name="title">

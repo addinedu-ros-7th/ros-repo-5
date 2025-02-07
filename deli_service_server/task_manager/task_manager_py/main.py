@@ -119,11 +119,11 @@ def main():
     rclpy.init()
     print(">>> rclpy.init() done.")
 
-    # 2) ROS2 테스트용 액션 서버 생성
-    print(">>> Creating RobotNavigationServer for 1,2,3...")
-    nav_server_r1 = RobotNavigationServer("1")
-    nav_server_r2 = RobotNavigationServer("2")
-    nav_server_r3 = RobotNavigationServer("3")
+    # 2) ROS2 액션 서버 생성
+    #print(">>> Creating RobotNavigationServer for 1,2,3...")
+    #nav_server_r1 = RobotNavigationServer("1")
+    #nav_server_r2 = RobotNavigationServer("2")
+    #nav_server_r3 = RobotNavigationServer("3")
 
     print(">>> Creating RobotManipulatorServer for cold,fresh,normal...")
     manip_server_cold = RobotManipulatorServer("manipulator_cold")
@@ -145,9 +145,9 @@ def main():
 
     # 5) 모든 노드를 합쳐 spin
     all_nodes = [
-        nav_server_r1,
-        nav_server_r2,
-        nav_server_r3,
+        #nav_server_r1,
+        #nav_server_r2,
+        #nav_server_r3,
         manip_server_cold,
         manip_server_fresh,
         manip_server_normal

@@ -30,6 +30,10 @@ install(
   RENAME main
 )
 
+install(
+  FILES domain_bridge.yaml
+  DESTINATION share/${PROJECT_NAME}
+)
 
 
 ament_package()

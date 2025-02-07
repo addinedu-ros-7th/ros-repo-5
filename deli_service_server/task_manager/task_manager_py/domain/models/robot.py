@@ -17,4 +17,3 @@ class Robot:
         self.path_queue = []
 
         self.waiting_time = 0
-        self.current_activity = "대기중"
