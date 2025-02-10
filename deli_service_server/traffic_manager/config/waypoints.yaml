@@ -1,8 +1,8 @@
 # general_station:
 "일반":
   pose:
-    x: 1.7
-    y: -0.77
+    x: 1.729
+    y: -0.796
     z: 0.0
     orientation:
       x: 0.0

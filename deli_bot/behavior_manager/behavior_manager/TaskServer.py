@@ -40,8 +40,7 @@ float32 distance_remaining
 
 < Test Command >
 
-$ ros2 action send_goal /delibot_1/dispatch_delivery_task task_manager_msgs/action/DispatchDeliveryTask "{pickups: [{station: 'fresh_station', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}]}" --feedback
-
+$ ros2 action send_goal /delibot_1/dispatch_delivery_task task_manager_msgs/action/DispatchDeliveryTask "{pickups: [{station: '일반', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}]}" --feedback
 
 ================================================================ """
 
@@ -106,7 +105,8 @@ class TaskServer(Node):
         if not tp_goal_handle.accepted:
             self.get_logger().warn("/set_target_pose Goal was rejected.")
             goal_handle.abort()
-            return SetTargetPose.Result(success=False)
+            # return SetTargetPose.Result(success=False)
+            return DispatchDeliveryTask.Result(success=False)
         
         self.get_logger().info("/set_target_pose Goal accepted by BehaviorManager. Waiting for result...")
 
@@ -114,15 +114,15 @@ class TaskServer(Node):
         result_future = tp_goal_handle.get_result_async()
         result = await result_future
 
-        # Return result fo TaskManager
+        # Return result to TaskManager
         if result.status == 0:
             self.get_logger().info("/navigate_to_pose Goal reached successfully!")
             goal_handle.succeed()
-            return SetTargetPose.Result(success=True)
+            return DispatchDeliveryTask.Result(success=True)
         else:
-            self.get_logger().warn("/navigate_to_pose Failed to reach the goal!")
+            self.get_logger().error("/navigate_to_pose Failed to reach the goal!")
             goal_handle.abort()
-            return SetTargetPose.Result(success=False)
+            return DispatchDeliveryTask.Result(success=False)
 
 
     async def request_station_waypoints(self, pickups):
