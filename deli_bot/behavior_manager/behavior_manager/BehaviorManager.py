@@ -19,7 +19,7 @@ Nav2의 주행이 완료되면 task_server가 완료 처리.
 
 
 < Test Command >
-$ ros2 service call /delibot_1/set_target_pose traffic_manager_msgs/srv/SetTargetPose "{target_pose: {station: 'station_a', pose: {header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 2.0, z: 0.0}, orientation: {z: 0.0, w: 1.0}}}}}"
+$ ros2 service call /delibot_1/set_target_pose traffic_manager_msgs/srv/SetTargetPose "{target_pose: {station: '일반', pose: {header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 2.0, z: 0.0}, orientation: {z: 0.0, w: 1.0}}}}}"
 
 """
 
@@ -74,27 +74,41 @@ class BehaviorManager(Node):
 
         # Send goal to Nav2 and receive feedback 
         # and return it to TaskServer 
-        nav_goal_handle = await self.nav_client.send_goal_async(
-            goal_msg, feedback_callback=lambda nav_fb: self.feedback_callback(goal_handle, nav_fb))
+        try:
+            nav_goal_handle = await self.nav_client.send_goal_async(
+                goal_msg, feedback_callback=lambda nav_fb: self.feedback_callback(goal_handle, nav_fb))
 
-        if not nav_goal_handle.accepted:
-            self.get_logger().warn("/navigate_to_pose Goal was rejected.")
+            if not nav_goal_handle.accepted:
+                self.get_logger().warn("/navigate_to_pose Goal was rejected.")
+                goal_handle.abort()
+                return SetTargetPose.Result(success=False)
+
+            self.get_logger().info("/navigate_to_pose Goal accepted by Nav2. Waiting for result...")
+
+            # Receive result from Nav2
+            result_future = nav_goal_handle.get_result_async()
+            result = await result_future
+
+            # Return result to TaskServer
+            return self.result_callback(goal_handle, result)
+        
+        except Exception as e:
+            self.get_logger().error(f"/navigate_to_pose error in sending goal: {str(e)}")
             goal_handle.abort()
             return SetTargetPose.Result(success=False)
 
-        self.get_logger().info("/navigate_to_pose Goal accepted by Nav2. Waiting for result...")
-        
-        # Receive result from Nav2
-        result_future = nav_goal_handle.get_result_async()
-        result = await result_future
 
-        # Return result to TaskServer
-        if result.status == 0:
-            self.get_logger().info("/navigate_to_pose Goal reached successfully!")
+    def result_callback(self, goal_handle, result):
+        if result.result.success:
+            self.get_logger().info("Navigation succeeded!")
             goal_handle.succeed()
             return SetTargetPose.Result(success=True)
+        # elif result.result == 1:
+        #     self.get_logger().info("Navigation was canceled.")
+        #     goal_handle.abort()
+        #     return SetTargetPose.Result(success=False)
         else:
-            self.get_logger().warn("/navigate_to_pose Failed to reach the goal!")
+            self.get_logger().error(f"Navigation failed with error: {result.result.error_code} {result.result.error_msg}")
             goal_handle.abort()
             return SetTargetPose.Result(success=False)
 
@@ -112,7 +126,7 @@ class BehaviorManager(Node):
         # Send feedback to TaskServer
         goal_handle.publish_feedback(feedback)
         log_message = format_feedback_log(feedback.current_pose, feedback.distance_remaining)
-        self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
+        # self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
 
 
 def main(args=None):

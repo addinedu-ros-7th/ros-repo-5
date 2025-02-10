@@ -50,9 +50,8 @@ def format_pose_log(pose_stamped: geometry_msgs.msg.PoseStamped) -> str:
     orientation = pose_stamped.pose.orientation
 
     log_message = (
-        f"\n- Current pose: \n"
-        f"  - pose={{position: {{x: {position.x}, y: {position.y}, z: {position.z}}},\n"
-        f"  - orientation: {{x: {orientation.x}, y: {orientation.y}, z: {orientation.z}, w: {orientation.w}}}}})\n"
+        f"\n- pose={{position: {{x: {position.x}, y: {position.y}, z: {position.z}}},\n"
+        f"- orientation: {{x: {orientation.x}, y: {orientation.y}, z: {orientation.z}, w: {orientation.w}}}}})\n"
     )
     return log_message
 
