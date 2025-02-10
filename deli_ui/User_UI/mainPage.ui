@@ -337,7 +337,7 @@
        <x>30</x>
        <y>40</y>
        <width>151</width>
-       <height>91</height>
+       <height>101</height>
       </rect>
      </property>
      <property name="text">
@@ -727,7 +727,7 @@
   </widget>
  </widget>
  <resources>
-  <include location="img/1.png"/>
+  <include location="../../../../../deli_ws/deli_ui/User_UI/img/1.png"/>
  </resources>
  <connections/>
 </ui>

@@ -164,6 +164,7 @@ class OrderService:
                 #     '새 경로의 첫 번째 스테이션이 여전히 점유 중'이면 2초 대기 후 다시 재계산
                 if (new_path == leftover_stations) or \
                    (len(new_path) > 0 and is_station_occupied(new_path[0])[0]):
+                    robot.current_activity = f"{robot.current_station}에서 대기중"
                     print("@@@@ time sleeping 2second")
                     time.sleep(2)
                     self.reduce_occupied_time()
