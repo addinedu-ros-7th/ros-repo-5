@@ -21,8 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'behavior_manager = behavior_manager.BehaviorManager:main',
-            'nav_client = behavior_manager.NavClient:main',
             'task_server = behavior_manager.TaskServer:main',
+            'robot_adapter = behavior_manager.RobotAdapter:main',
             'traffic_client = behavior_manager.TrafficClient:main',
             'goal_listener = behavior_manager.GoalListener:main'
         ],

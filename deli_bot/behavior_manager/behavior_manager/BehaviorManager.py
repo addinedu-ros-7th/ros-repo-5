@@ -99,7 +99,7 @@ class BehaviorManager(Node):
 
 
     def result_callback(self, goal_handle, result):
-        if result.result.success:
+        if result.result.error_code == 0:
             self.get_logger().info("Navigation succeeded!")
             goal_handle.succeed()
             return SetTargetPose.Result(success=True)
