@@ -1,0 +1,3 @@
+<library path="libnav_controller.so">
+  <class name="AlignWithPath" type="nav_controller.AlignWithPath" base_class_type="nav2_behavior_tree::BtActionNode"/>
+</library>
