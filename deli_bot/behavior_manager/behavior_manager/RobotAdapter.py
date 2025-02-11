@@ -39,7 +39,7 @@ class RobotAdapter(Node):
         battery_msg = BatteryLevel()
         battery_msg.level = msg.data
         self.battery_pub.publish(battery_msg)
-        self.get_logger().info(f"/{self.robot_id}_adapter Battery State: {battery_msg.level}%")
+        # self.get_logger().info(f"/{self.robot_id}_adapter Battery State: {battery_msg.level}%")
 
 
 def main(args=None):

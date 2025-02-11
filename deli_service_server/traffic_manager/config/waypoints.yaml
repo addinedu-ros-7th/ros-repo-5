@@ -1,8 +1,8 @@
 # general_station:
-"일반":
+"냉동":
   pose:
-    x: 1.729
-    y: -0.796
+    x: 1.744
+    y: -0.740
     z: 0.0
     orientation:
       x: 0.0
@@ -13,8 +13,8 @@
 # "fresh_station":
 "신선":
   pose:
-    x: 1.77
-    y: 0.38
+    x: 1.744
+    y: 0.398
     z: 0.0
     orientation:
       x: 0.0
@@ -23,10 +23,10 @@
       w: 0.0
 
 # frozen_station:
-"냉동":
+"일반":
   pose:
-    x: 1.73
-    y: -0.8
+    x: 0.992
+    y: -0.061
     z: 0.0
     orientation:
       x: 0.0
@@ -50,7 +50,7 @@
 "출발지1":
   pose:
     x: -0.09
-    y: -0.403
+    y: 0.0
     z: 0.0
     orientation:
       x: 0.0

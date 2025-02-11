@@ -12,15 +12,21 @@ from behavior_manager.utils import format_target_pose_log, format_feedback_log, 
 import asyncio
 
 """
-task_server가 DispatchDeliveryTask goal을 받으면 nav_client에 주행 목표 전송.
-nav_client가 Nav2에서 받은 피드백(현재 위치, 남은 거리)을 nav_feedback_relay 노드에 퍼블리시.
-nav_feedback_relay가 데이터를 task_server에 전달하여 피드백을 갱신.
-Nav2의 주행이 완료되면 task_server가 완료 처리.
+Description:
+Receive the task and request waypoints.
 
+---
+Action Server:
+    Action: SetTargetPose
+    Server name: /{robot_id}/set_target_pose
+---
+Action Client:
+    Action: NavigateToPose
+    Client name: /{robot_id}/navigate_to_pose
 
-< Test Command >
+---
+Test Command:
 $ ros2 service call /delibot_1/set_target_pose traffic_manager_msgs/srv/SetTargetPose "{target_pose: {station: '일반', pose: {header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 2.0, z: 0.0}, orientation: {z: 0.0, w: 1.0}}}}}"
-
 """
 
 class BehaviorManager(Node):
@@ -31,12 +37,12 @@ class BehaviorManager(Node):
         # Initialize action server
         self.target_pose_server = ActionServer(
             self, SetTargetPose, f"{self.robot_id}/set_target_pose", self.handle_target_pose)
-        self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is ready!")
+        # self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is ready!")
 
         # Initialize action client for Nav2
         self.nav_client = ActionClient(
             self, NavigateToPose, '/navigate_to_pose')
-        self.get_logger().info(f"/navigate_to_pose Action client is ready!")
+        # self.get_logger().info(f"/navigate_to_pose Action client is ready!")
 
 
     async def handle_target_pose(self, goal_handle):
@@ -50,7 +56,7 @@ class BehaviorManager(Node):
         # self.goal_handle = goal_handle
         target_pose = goal_handle.request.target_pose
         pose_log_message = format_target_pose_log(target_pose)
-        self.get_logger().info(f"{self.robot_id}/set_target_pose Goal received: \n{pose_log_message}")
+        # self.get_logger().info(f"{self.robot_id}/set_target_pose Goal received: \n{pose_log_message}")
 
         """
         Send goal pose to Nav2.
@@ -61,7 +67,7 @@ class BehaviorManager(Node):
         # Wait for the service server to be available
         while not self.nav_client.wait_for_server(timeout_sec=1.0):
             self.get_logger().info(f'/navigate_to_pose Waiting for server...')
-        self.get_logger().info(f"/navigate_to_pose Service is available!")
+        # self.get_logger().info(f"/navigate_to_pose Service is available!")
         
         # Initialize goal message
         goal_msg = NavigateToPose.Goal()
@@ -99,18 +105,21 @@ class BehaviorManager(Node):
 
 
     def result_callback(self, goal_handle, result):
-        if result.result.error_code == 0:
-            self.get_logger().info("Navigation succeeded!")
+        nav_result = result.result
+        if nav_result.error_code == 0:
+            self.get_logger().info(f"Navigation succeeded!: {nav_result}")
             goal_handle.succeed()
-            return SetTargetPose.Result(success=True)
+            return SetTargetPose.Result(
+                success=True, error_code=0, error_msg="Navigation succeeded!")
         # elif result.result == 1:
         #     self.get_logger().info("Navigation was canceled.")
         #     goal_handle.abort()
         #     return SetTargetPose.Result(success=False)
         else:
-            self.get_logger().error(f"Navigation failed with error: {result.result.error_code} {result.result.error_msg}")
+            self.get_logger().error(f"Navigation failed with error: {nav_result.error_code} {nav_result.error_msg}")
             goal_handle.abort()
-            return SetTargetPose.Result(success=False)
+            return SetTargetPose.Result(
+                success=False, error_code=nav_result.error_code, error_msg=nav_result.error_msg)
 
 
     def feedback_callback(self, goal_handle, feedback_msg):
