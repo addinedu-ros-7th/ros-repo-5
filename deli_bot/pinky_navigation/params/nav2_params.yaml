@@ -9,7 +9,7 @@ bt_navigator:
     action_server_result_timeout: 900.0
     navigators: ["navigate_to_pose", "navigate_through_poses"]
     navigate_to_pose:
-      plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
+      plugin: ["nav2_bt_navigator::NavigateToPoseNavigator", "nav_controller.AlignWithPath"]
     navigate_through_poses:
       plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
     # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
@@ -19,7 +19,8 @@ bt_navigator:
 
     # plugin_lib_names is used to add custom BT plugins to the executor (vector of strings).
     # Built-in plugins are added automatically
-    # plugin_lib_names: []
+    plugin_lib_names:
+      - nav_controller.AlignWithPath
 
     error_code_names:
       - compute_path_error_code

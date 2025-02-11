@@ -10,8 +10,9 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name, ['plugins.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'py_trees', 'rclpy'],
     zip_safe=True,
     maintainer='naon',
     maintainer_email='jonaon611@gmail.com',
@@ -20,7 +21,10 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'align_with_path = nav_controller.AlignWithPath:main',
+            # 'align_with_path = nav_controller.AlignWithPath:main',
         ],
+        'nav2_behavior_tree.plugins':[
+            'AlignWithPath = nav_controller.AlignWithPath:AlignWithPath'
+        ]
     },
 )

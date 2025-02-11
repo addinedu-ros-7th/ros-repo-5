@@ -1,0 +1,7 @@
+<class_libraries>
+  <library path="nav_controller">
+    <class name="AlignWithPath" type="nav_controller.AlignWithPath" base_class_type="nav2_behavior_tree::BtActionNode">
+      <description>Align heading angle with path</description>
+    </class>
+  </library>
+</class_libraries>
