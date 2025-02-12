@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'camera_receiver = delibot_obstacle_detector.camera_receiver:main',
+            'yolov8 = delibot_obstacle_detector.yolov8:main',
         ],
     },
 )

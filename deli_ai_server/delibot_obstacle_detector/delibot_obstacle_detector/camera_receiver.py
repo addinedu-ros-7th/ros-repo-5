@@ -6,20 +6,39 @@ import numpy as np
 
 from commons.udp_setups import server
 
+from ultralytics import YOLO 
+from ultralytics.engine.results import Results
+from ultralytics.engine.results import Boxes
+from ultralytics.engine.results import Masks
+from ultralytics.engine.results import Keypoints
+
+from interfaces_pkg.msg import Point2D
+from interfaces_pkg.msg import BoundingBox2D
+from interfaces_pkg.msg import Mask
+from interfaces_pkg.msg import KeyPoint2D
+from interfaces_pkg.msg import KeyPoint2DArray
+from interfaces_pkg.msg import Detection
+from interfaces_pkg.msg import DetectionArray
+
+
+
 class CameraReceiver(Node):
     def __init__(self):
         super().__init__('camera_receiver')
 
-        # UDP 수신 설정 (파라미터로 관리)
+        # UDP receiving settings (configured via commons.udp_setups)
         self.udp_ip = server["SERVER_IP"]
         self.udp_port = server["SERVER_PORT"]
 
-        # UDP 소켓 설정
+        # UDP socket setup
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((self.udp_ip, self.udp_port))
         self.sock.setblocking(False)  # 비동기 처리
 
-        # 타이머로 데이터 수신 (10 FPS)
+        # Load YOLO model
+        self.model = YOLO('best.pt')
+
+        # Timer to receive data at 10 FPS
         self.timer = self.create_timer(0.1, self.receive_frame)
 
         self.get_logger().info(f"Camera Receiver Initialized: {self.udp_ip}:{self.udp_port}")
@@ -27,18 +46,25 @@ class CameraReceiver(Node):
 
     def receive_frame(self):
         try:
-            data, _ = self.sock.recvfrom(65507)  # 최대 UDP 패킷 크기
+            # Receive data from UDP socket
+            data, _ = self.sock.recvfrom(65507)     # Maximum UDP packet size
             np_data = np.frombuffer(data, dtype=np.uint8)
             frame = cv2.imdecode(np_data, cv2.IMREAD_COLOR)
 
             if frame is not None:
-                cv2.imshow("Received Video Stream", frame)
+                # Perform object detection using YOLO
+                results = self.model(frame)
+                # Draw bounding boxes on detected objects
+                annotated_frame = results[0].plot()
+
+                cv2.imshow("YOLO Object Detection", annotated_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     self.get_logger().info("Shutting down receiver.")
                     rclpy.shutdown()
 
         except BlockingIOError:
-            pass  # 수신할 데이터가 없으면 무시
+            # Ignore if no data is received
+            pass
 
         except Exception as e:
             self.get_logger().error(f"Error receiving frame: {str(e)}")
