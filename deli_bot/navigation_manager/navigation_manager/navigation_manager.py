@@ -6,6 +6,7 @@ from rclpy.action import ActionServer
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 from traffic_manager_msgs.action import SetTargetPose
+from nav_interfaces.msg import ObstacleDetected
 
 from navigation_manager.utils import format_target_pose_log, format_feedback_log, format_pose_log
 
@@ -17,12 +18,19 @@ Receive the task and request waypoints.
 
 ---
 Action Server:
-    Action: SetTargetPose
-    Server name: /{robot_id}/set_target_pose
+    msg type: SetTargetPose
+    Action name: /{robot_id}/set_target_pose
+    Server name: target_pose_server
+---
+Topic Subscription:
+    msg type: ObstacleDetected
+    topic name: /obstacles
+    Sub name: obstacles_sub
 ---
 Action Client:
-    Action: NavigateToPose
-    Client name: /{robot_id}/navigate_to_pose
+    msg type: NavigateToPose
+    Action name: {robot_id}/navigate_to_pose
+    Client name: nav_client
 
 ---
 Test Command:
@@ -39,6 +47,9 @@ class NavigationManager(Node):
             self, SetTargetPose, f"{self.robot_id}/set_target_pose", self.handle_target_pose)
         # self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is ready!")
 
+        self.obstacles_sub = self.create_subscription(
+            ObstacleDetected, 'obstacles', self.obstacles_callback, 10
+        )
         # Initialize action client for Nav2
         self.nav_client = ActionClient(
             self, NavigateToPose, '/navigate_to_pose')

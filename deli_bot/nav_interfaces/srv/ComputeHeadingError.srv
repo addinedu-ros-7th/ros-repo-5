@@ -1,0 +1,4 @@
+geometry_msgs/PoseStamped current_pose
+nav_msgs/Path path
+---
+float64 heading_error
