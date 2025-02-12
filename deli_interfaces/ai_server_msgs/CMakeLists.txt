@@ -14,9 +14,8 @@ find_package(geometry_msgs REQUIRED)
 set(msg_files
   "msg/BoundingBox2D.msg"
   "msg/Detection.msg"
+  "msg/DetectionArray.msg"
   "msg/KeyPoint2D.msg" 
-  "msg/KeyPoint2DArray.msg"
-  "msg/Mask.msg"
   "msg/Point2D.msg"
   "msg/Pose2D.msg"
   "msg/Vector2.msg"
