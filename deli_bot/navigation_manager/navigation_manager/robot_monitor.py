@@ -22,10 +22,10 @@ Subscription Topic:
     Type: std_msgs/msg/Float32
 """
 
-class RobotAdapter(Node):
+class RobotMonitor(Node):
     def __init__(self, robot_id):
         self.robot_id = robot_id
-        super().__init__(f"{self.robot_id}_adapter")
+        super().__init__(f"{self.robot_id}_monitor")
         self.battery_sub = self.create_subscription(
             Float32, "/pinky_battery_present", self.battery_callback, 10
         )
@@ -44,7 +44,7 @@ class RobotAdapter(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = RobotAdapter("delibot_1")
+    node = RobotMonitor("delibot_1")
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

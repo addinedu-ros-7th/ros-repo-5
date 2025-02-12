@@ -8,7 +8,7 @@ from task_manager_msgs.action import DispatchDeliveryTask
 from traffic_manager_msgs.srv import GetStationWaypoints
 from traffic_manager_msgs.action import SetTargetPose
 
-from behavior_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log, format_feedback_log
+from navigation_manager.utils import format_pickup_tasks_log, format_station_waypoints_log, format_pose_log, format_feedback_log
 
 import asyncio
 import time
@@ -37,9 +37,9 @@ $ ros2 action send_goal /delibot_1/dispatch_delivery_task task_manager_msgs/acti
 """
 
 
-class TaskServer(Node):
+class TaskHandler(Node):
     def __init__(self, robot_id: str):
-        super().__init__(f"{robot_id}_task_server")
+        super().__init__(f"{robot_id}_task_handler")
         self.robot_id = robot_id
 
         # Initialize action server
@@ -97,7 +97,7 @@ class TaskServer(Node):
         self.get_logger().info(f"/set_target_pose Sending goal: \n{pose_goal_log_message}")
 
         # Send goal to BehaviorManager and receive feedback 
-        # and return it to TaskServer 
+        # and return it to TaskHandler 
         tp_goal_handle = await self.target_pose_client.send_goal_async(
             goal_msg, feedback_callback=lambda fb: self.feedback_callback(goal_handle, fb))
         
@@ -173,7 +173,7 @@ class TaskServer(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = TaskServer("delibot_1")
+    node = TaskHandler("delibot_1")
 
     executor = MultiThreadedExecutor()
     executor.add_node(node)

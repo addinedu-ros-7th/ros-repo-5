@@ -7,7 +7,7 @@ from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 from traffic_manager_msgs.action import SetTargetPose
 
-from behavior_manager.utils import format_target_pose_log, format_feedback_log, format_pose_log
+from navigation_manager.utils import format_target_pose_log, format_feedback_log, format_pose_log
 
 import asyncio
 
@@ -29,10 +29,10 @@ Test Command:
 $ ros2 service call /delibot_1/set_target_pose traffic_manager_msgs/srv/SetTargetPose "{target_pose: {station: '일반', pose: {header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 2.0, z: 0.0}, orientation: {z: 0.0, w: 1.0}}}}}"
 """
 
-class BehaviorManager(Node):
+class NavigationManager(Node):
     def __init__(self, robot_id):
         self.robot_id = robot_id
-        super().__init__(f"{self.robot_id}_behavior_manager")
+        super().__init__(f"{self.robot_id}_navigation_manager")
 
         # Initialize action server
         self.target_pose_server = ActionServer(
@@ -140,7 +140,7 @@ class BehaviorManager(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BehaviorManager("delibot_1")
+    node = NavigationManager("delibot_1")
     
     try:
         rclpy.spin(node)
