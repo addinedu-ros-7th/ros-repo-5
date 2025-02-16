@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'delibot_obstacle_detector'
+package_name = 'delibot_perception_manager'
 
 setup(
     name=package_name,
@@ -20,8 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'obstacle_info_extractor = delibot_obstacle_detector.obstacle_info_extractor:main',
-            'yolov8_detector = delibot_obstacle_detector.yolov8_detector:main',
+            'perception_manager = delibot_perception_manager.perception_manager:main',
         ],
     },
 )

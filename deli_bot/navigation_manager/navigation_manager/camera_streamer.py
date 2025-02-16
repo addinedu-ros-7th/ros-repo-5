@@ -31,7 +31,8 @@ class CameraStreamer(Node):
         # 타이머 설정 (0.1초 간격, 약 10 FPS)
         self.timer = self.create_timer(0.1, self.capture_and_send)
 
-        self.get_logger().info("Camera Streamer Node Initialized.")
+        self.get_logger().info("Camera Streamer initialized.")
+
     def capture_and_send(self):
         try:
             # Picamera2로 프레임 캡처 (RGB 포맷)
@@ -56,7 +57,7 @@ class CameraStreamer(Node):
 
             # UDP 전송
             self.sock.sendto(data, (self.udp_ip, self.udp_port))
-            self.get_logger().info(f"Frame Sent: {len(data)} bytes")
+            # self.get_logger().info(f"Frame Sent: {len(data)} bytes")
 
         except Exception as e:
             self.get_logger().error(f"Error in capture_and_send: {str(e)}")
@@ -68,7 +69,7 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        node.get_logger().info("Camera Streamer Stopped.")
+        node.get_logger().info("Camera Streamer stopped.")
     finally:
         node.destroy_node()
         rclpy.shutdown()

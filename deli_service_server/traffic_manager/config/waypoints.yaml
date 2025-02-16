@@ -81,3 +81,37 @@
       y: 0.0
       z: 0.0
       w: 1.0
+
+
+"start_point21":
+  pose:
+    x: 0.272
+    y: -0.002
+    z: 0.0024
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+
+"start_point22":
+  pose:
+    x: 0.272
+    y: -0.002
+    z: 0.002
+    orientation:
+      x: -0.0
+      y: 0.0
+      z: -0.714
+      w: 0.699
+
+"start_point23":
+  pose:
+    x: 0.272
+    y: -0.002
+    z: 0.002
+    orientation:
+      x: -0.0
+      y: 0.0
+      z: -0.714
+      w: 0.699

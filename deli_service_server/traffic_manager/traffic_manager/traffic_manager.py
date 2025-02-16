@@ -12,31 +12,22 @@ from traffic_manager_msgs.msg import StationWaypoint
 from traffic_manager.utils import format_pickup_tasks_log, format_station_waypoints_log
 
 """ ================================================================
+Description:
 
-< Service Server >
+Service Server
 - service type : GetStationWaypoints
 - service name : "get_station_waypoints"
 - callback : handle_station_waypoints
 
-
-< GetStationWaypoints >
-# Request
-task_manager_msgs/PickUp[] pickups
-
 ---
-# Response
-StationWaypoint[] station_waypoints
-
-
-< Test Command >
+Test Command
 $ ros2 service call /delibot_1/get_station_waypoints traffic_manager_msgs/srv/GetStationWaypoints "pickups:
-- {station: 'apple_shelf', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}
-- {station: 'peach_shelf', handler: 'delibot_1', payload: [{sku: 'peach', quantity: 3}]}"
-
+- {station: '일반', handler: 'delibot_1', payload: [{sku: 'apple', quantity: 5}]}
+- {station: '신선', handler: 'delibot_1', payload: [{sku: 'peach', quantity: 3}]}"
 
 $ ros2 service call /delibot_2/get_station_waypoints traffic_manager_msgs/srv/GetStationWaypoints "pickups:
-- {station: 'apple_shelf', handler: 'delibot_2', payload: [{sku: 'apple', quantity: 2}]}
-- {station: 'peach_shelf', handler: 'delibot_2', payload: [{sku: 'peach', quantity: 4}]}"
+- {station: '일반', handler: 'delibot_2', payload: [{sku: 'apple', quantity: 2}]}
+- {station: '신선', handler: 'delibot_2', payload: [{sku: 'peach', quantity: 4}]}"
 
 ================================================================ """
 

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>nav_interfaces</name>
+  <name>navigation_manager_msgs</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="jonaon611@gmail.com">naon</maintainer>
@@ -13,12 +13,14 @@
   <build_depend>builtin_interfaces</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>nav_msgs</build_depend>
+  <build_depend>ai_server_msgs</build_depend>
   <build_depend>task_manager_msgs</build_depend>
 
   <exec_depend>rosidl_default_runtime</exec_depend>
   <exec_depend>builtin_interfaces</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>ai_server_msgs</exec_depend>
   <exec_depend>task_manager_msgs</exec_depend>
   
   <member_of_group>rosidl_interface_packages</member_of_group>

@@ -18,8 +18,8 @@
   <exec_depend>ai_server_msgs</exec_depend>
   <exec_depend>task_manager_msgs</exec_depend>
   <exec_depend>traffic_manager_msgs</exec_depend>
-  <exec_depend>nav_interfaces</exec_depend>
-Z
+  <exec_depend>navigation_manager_msgs</exec_depend>
+
   <member_of_group>rosidl_interface_packages</member_of_group>
 
   <test_depend>ament_copyright</test_depend>

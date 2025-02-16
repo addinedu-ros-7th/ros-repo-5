@@ -32,7 +32,7 @@ class RobotMonitor(Node):
         self.battery_pub = self.create_publisher(
             BatteryLevel, f"{self.robot_id}/battery", 10
         )
-        self.get_logger().info(f"/{self.robot_id}_adapter has started.")
+        self.get_logger().info(f"Robot Monitor initialized.")
 
 
     def battery_callback(self, msg):
@@ -48,7 +48,7 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.get_logger().info("Robot Monitor stopped.")
     finally:
         node.destroy_node()
         rclpy.shutdown()

@@ -45,7 +45,7 @@ class TaskHandler(Node):
         # Initialize action server
         self.delivery_task_server = ActionServer(
             self, DispatchDeliveryTask, f"{self.robot_id}/dispatch_delivery_task", self.handle_dispatch_task)
-        self.get_logger().info(f"/{self.robot_id}/dispatch_delivery_task Action is ready!")
+        # self.get_logger().info(f"/{self.robot_id}/dispatch_delivery_task Action is ready!")
 
         # Initialize service client
         self.waypoint_client = self.create_client(
@@ -55,8 +55,8 @@ class TaskHandler(Node):
         # Initialize action client
         self.target_pose_client = ActionClient(
             self, SetTargetPose, f"{self.robot_id}/set_target_pose")
-        self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is available!")
-
+        # self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is available!")
+        self.get_logger().info(f"Task Handler initialized.")
 
     async def handle_dispatch_task(self, goal_handle):
         """
@@ -167,8 +167,8 @@ class TaskHandler(Node):
 
         # Send feedback to TaskManager
         goal_handle.publish_feedback(feedback)
-        log_message = format_feedback_log(feedback.current_pose, feedback.distance_remaining)
-        self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
+        # log_message = format_feedback_log(feedback.current_pose, feedback.distance_remaining)
+        # self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
 
 
 def main(args=None):
@@ -180,10 +180,8 @@ def main(args=None):
 
     try:
         executor.spin()
-
     except KeyboardInterrupt:
-        pass
-
+        node.get_logger().info(f"Task Handler stopped.")
     finally:
         node.destroy_node()
         rclpy.shutdown()

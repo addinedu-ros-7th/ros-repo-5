@@ -26,9 +26,10 @@ setup(
         'console_scripts': [
             'camera_streamer = navigation_manager.camera_streamer:main',
             'navigation_manager = navigation_manager.navigation_manager:main',
-            'perception_manager = navigation_manager.perception_manager:main',
+            'motion_planner_manager = navigation_manager.motion_planner_manager:main',
             'task_handler = navigation_manager.task_handler:main',
             'robot_monitor = navigation_manager.robot_monitor:main',
+            'start_points_navigator = navigation_manager.start_points_navigator:main'
         ],
     },
 )
