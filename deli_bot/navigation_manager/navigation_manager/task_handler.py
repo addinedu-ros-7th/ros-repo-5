@@ -45,33 +45,19 @@ class TaskHandler(Node):
         # Initialize action server
         self.delivery_task_server = ActionServer(
             self, DispatchDeliveryTask, f"{self.robot_id}/dispatch_delivery_task", self.handle_dispatch_task)
-        # self.get_logger().info(f"/{self.robot_id}/dispatch_delivery_task Action is ready!")
 
         # Initialize service client
         self.waypoint_client = self.create_client(
             GetStationWaypoints, f"{self.robot_id}/get_station_waypoints")
-        # self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
-
+        
         # Initialize action client
         self.target_pose_client = ActionClient(
             self, SetTargetPose, f"{self.robot_id}/set_target_pose")
-        # self.get_logger().info(f"/{self.robot_id}/set_target_pose Action is available!")
+
         self.get_logger().info(f"Task Handler initialized.")
 
     async def handle_dispatch_task(self, goal_handle):
-        """
-        Handle incoming dispatch delivery task requests.
-        ---
-        goal:
-            PickUp[] pickups
-        result:
-            bool success
-            int32 error_code    # 0=success, 1=waypoint failure, 2=navigation failure
-            string error_msg
-        feedback:
-            geometry_msgs/PoseStamped current_pose
-            float32 distance_remaining
-        """
+        """Handle incoming dispatch delivery task requests."""
         # Receive goal from TaskManager
         self.goal_handle = goal_handle
         pickups = goal_handle.request.pickups
@@ -87,17 +73,19 @@ class TaskHandler(Node):
             return result
 
         # Receive response from TrafficManager 
-        target_pose = wp_result.station_waypoints[0].waypoint
-        goal_msg = SetTargetPose.Goal()
-        goal_msg.target_pose = PoseStamped()
-        goal_msg.target_pose.header.frame_id = target_pose.header.frame_id
-        goal_msg.target_pose.pose = target_pose.pose
+        # target_pose = wp_result.station_waypoints[0].waypoint
+        # goal_msg = SetTargetPose.Goal()
+        # goal_msg.target_pose = PoseStamped()
+        # goal_msg.target_pose.header.frame_id = target_pose.header.frame_id
+        # goal_msg.target_pose.pose = target_pose.pose
 
-        pose_goal_log_message = format_pose_log(goal_msg.target_pose)
-        self.get_logger().info(f"/set_target_pose Sending goal: \n{pose_goal_log_message}")
+        # pose_goal_log_message = format_pose_log(goal_msg.target_pose)
+        # self.get_logger().info(f"/set_target_pose Sending goal: \n{pose_goal_log_message}")
+
+        target_pose = wp_result.station_waypoints
+        goal_msg = SetTargetPose.target_poses
 
         # Send goal to BehaviorManager and receive feedback 
-        # and return it to TaskHandler 
         tp_goal_handle = await self.target_pose_client.send_goal_async(
             goal_msg, feedback_callback=lambda fb: self.feedback_callback(goal_handle, fb))
         
@@ -130,14 +118,11 @@ class TaskHandler(Node):
 
 
     async def request_station_waypoints(self, pickups):
-        """
-        Request: pickups
-        Response: station_waypoints
-        """
+        """Request station waypoint"""
         # Wait for the service server to be available
         while not self.waypoint_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info(f'/{self.robot_id}/get_station_waypoints Waiting for service...')
-        # self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
+        self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Service is available!")
         
         # Initialize request
         request = GetStationWaypoints.Request()
@@ -151,14 +136,11 @@ class TaskHandler(Node):
             return None
         
         log_message = format_station_waypoints_log(result.station_waypoints)
-        # self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
+        self.get_logger().info(f"/{self.robot_id}/get_station_waypoints Response received: \n{log_message}")
         return result
 
     def feedback_callback(self, goal_handle, feedback_msg):
-        """
-        Send feedback to TaskManager, which is received from BehaviorManager.
-        feedback: current_pose, distance_remaining
-        """
+        """Send feedback to TaskManager, which is received from BehaviorManager."""
 
         # Initialize feedback
         feedback = DispatchDeliveryTask.Feedback()
@@ -167,8 +149,8 @@ class TaskHandler(Node):
 
         # Send feedback to TaskManager
         goal_handle.publish_feedback(feedback)
-        # log_message = format_feedback_log(feedback.current_pose, feedback.distance_remaining)
-        # self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
+        log_message = format_feedback_log(feedback.current_pose, feedback.distance_remaining)
+        self.get_logger().info(f"/dispatch_delivery_task Feedback: \n{log_message}")
 
 
 def main(args=None):
